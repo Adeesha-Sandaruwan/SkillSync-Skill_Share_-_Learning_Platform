@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
-import PlanCard from '../components/PlanCard'; // <--- Ensure this is imported
+import PlanCard from '../components/PlanCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import EditProfileModal from '../components/EditProfileModal'; // <--- Import Modal
 import { useAuth } from '../context/AuthContext';
 
 const Profile = () => {
@@ -13,10 +14,11 @@ const Profile = () => {
 
     const [profileUser, setProfileUser] = useState(null);
     const [posts, setPosts] = useState([]);
-    const [userPlans, setUserPlans] = useState([]); // <--- New State for Plans
+    const [userPlans, setUserPlans] = useState([]);
     const [stats, setStats] = useState({ totalLikes: 0, totalPosts: 0, totalPlans: 0 });
     const [activeTab, setActiveTab] = useState('posts');
     const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false); // <--- State for Modal
 
     useEffect(() => {
         fetchProfileData();
@@ -25,24 +27,21 @@ const Profile = () => {
     const fetchProfileData = async () => {
         try {
             setLoading(true);
-
-            // Fetch User, Posts, AND Plans in parallel
             const [userRes, postsRes, plansRes] = await Promise.all([
                 api.get(`/users/${userId}`),
                 api.get(`/users/${userId}/posts`),
-                api.get(`/users/${userId}/plans`) // <--- Added Plan Fetch
+                api.get(`/users/${userId}/plans`)
             ]);
 
             setProfileUser(userRes.data);
             setPosts(postsRes.data);
             setUserPlans(plansRes.data);
 
-            // Calculate stats
             const likes = postsRes.data.reduce((acc, post) => acc + (post.likeCount || 0), 0);
             setStats({
                 totalLikes: likes,
                 totalPosts: postsRes.data.length,
-                totalPlans: plansRes.data.length // <--- Real Plan Count
+                totalPlans: plansRes.data.length
             });
 
         } catch (error) {
@@ -52,10 +51,13 @@ const Profile = () => {
         }
     };
 
-    // Helper to remove plan from UI if deleted
     const handleDeletePlan = (planId) => {
         setUserPlans(prev => prev.filter(p => p.id !== planId));
         setStats(prev => ({ ...prev, totalPlans: prev.totalPlans - 1 }));
+    };
+
+    const handleProfileUpdate = (updatedUser) => {
+        setProfileUser(updatedUser); // Update UI immediately
     };
 
     if (loading) {
@@ -93,9 +95,17 @@ const Profile = () => {
 
                         {/* Avatar */}
                         <div className="relative">
-                            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg ring-4 ring-white">
-                                {profileUser.username.charAt(0).toUpperCase()}
-                            </div>
+                            {profileUser.avatarUrl ? (
+                                <img
+                                    src={profileUser.avatarUrl}
+                                    alt="Profile"
+                                    className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover shadow-lg ring-4 ring-white"
+                                />
+                            ) : (
+                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg ring-4 ring-white">
+                                    {profileUser.username.charAt(0).toUpperCase()}
+                                </div>
+                            )}
                             <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-2 border-white rounded-full" title="Online"></div>
                         </div>
 
@@ -104,7 +114,10 @@ const Profile = () => {
                             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                                 {profileUser.username}
                             </h1>
-                            <p className="text-gray-500 font-medium">{profileUser.email}</p>
+                            {profileUser.bio && (
+                                <p className="text-gray-600 mt-1 max-w-lg">{profileUser.bio}</p>
+                            )}
+                            <p className="text-gray-400 text-sm font-medium mt-1">{profileUser.email}</p>
 
                             <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-8">
                                 <div className="text-center">
@@ -124,7 +137,10 @@ const Profile = () => {
 
                         {/* Edit Button (Only visible if own profile) */}
                         {isOwner && (
-                            <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors">
+                            <button
+                                onClick={() => setIsEditing(true)} // <--- Open Modal
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors shadow-sm"
+                            >
                                 Edit Profile
                             </button>
                         )}
@@ -189,6 +205,15 @@ const Profile = () => {
                     </div>
                 )}
             </main>
+
+            {/* Edit Profile Modal */}
+            {isEditing && (
+                <EditProfileModal
+                    user={profileUser}
+                    onClose={() => setIsEditing(false)}
+                    onUpdate={handleProfileUpdate}
+                />
+            )}
         </div>
     );
 };

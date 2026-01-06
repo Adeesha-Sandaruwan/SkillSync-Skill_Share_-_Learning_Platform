@@ -2,13 +2,12 @@ package com.learning.lms.service;
 
 import com.learning.lms.dto.LoginRequest;
 import com.learning.lms.dto.RegisterRequest;
+import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -18,11 +17,11 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public User registerUser(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already in use");
-        }
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username already taken");
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already registered");
         }
 
         User user = new User();
@@ -46,5 +45,29 @@ public class UserService {
     public User getUserById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    // NEW METHOD: Update User Profile
+    public User updateUser(Long userId, UserUpdateRequest request) {
+        User user = getUserById(userId);
+
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            // If changing username, check if taken by someone else
+            if (!user.getUsername().equals(request.getUsername()) &&
+                    userRepository.existsByUsername(request.getUsername())) {
+                throw new RuntimeException("Username already taken");
+            }
+            user.setUsername(request.getUsername());
+        }
+
+        if (request.getBio() != null) {
+            user.setBio(request.getBio());
+        }
+
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
+        }
+
+        return userRepository.save(user);
     }
 }

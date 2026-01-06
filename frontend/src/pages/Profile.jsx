@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
+import PlanCard from '../components/PlanCard'; // <--- Ensure this is imported
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,8 +13,9 @@ const Profile = () => {
 
     const [profileUser, setProfileUser] = useState(null);
     const [posts, setPosts] = useState([]);
-    const [stats, setStats] = useState({ totalLikes: 0, totalPosts: 0 });
-    const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'plans'
+    const [userPlans, setUserPlans] = useState([]); // <--- New State for Plans
+    const [stats, setStats] = useState({ totalLikes: 0, totalPosts: 0, totalPlans: 0 });
+    const [activeTab, setActiveTab] = useState('posts');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -23,24 +25,37 @@ const Profile = () => {
     const fetchProfileData = async () => {
         try {
             setLoading(true);
-            // Parallel data fetching for speed
-            const [userRes, postsRes] = await Promise.all([
+
+            // Fetch User, Posts, AND Plans in parallel
+            const [userRes, postsRes, plansRes] = await Promise.all([
                 api.get(`/users/${userId}`),
-                api.get(`/users/${userId}/posts`)
+                api.get(`/users/${userId}/posts`),
+                api.get(`/users/${userId}/plans`) // <--- Added Plan Fetch
             ]);
 
             setProfileUser(userRes.data);
             setPosts(postsRes.data);
+            setUserPlans(plansRes.data);
 
-            // Calculate stats client-side for immediate feedback
+            // Calculate stats
             const likes = postsRes.data.reduce((acc, post) => acc + (post.likeCount || 0), 0);
-            setStats({ totalLikes: likes, totalPosts: postsRes.data.length });
+            setStats({
+                totalLikes: likes,
+                totalPosts: postsRes.data.length,
+                totalPlans: plansRes.data.length // <--- Real Plan Count
+            });
 
         } catch (error) {
             console.error("Error loading profile:", error);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Helper to remove plan from UI if deleted
+    const handleDeletePlan = (planId) => {
+        setUserPlans(prev => prev.filter(p => p.id !== planId));
+        setStats(prev => ({ ...prev, totalPlans: prev.totalPlans - 1 }));
     };
 
     if (loading) {
@@ -64,6 +79,8 @@ const Profile = () => {
             </div>
         );
     }
+
+    const isOwner = currentUser?.id === profileUser.id;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -99,14 +116,14 @@ const Profile = () => {
                                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Likes</div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-2xl font-bold text-gray-900">0</div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.totalPlans}</div>
                                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Plans Active</div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Edit Button (Only visible if own profile) */}
-                        {currentUser?.id === profileUser.id && (
+                        {isOwner && (
                             <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors">
                                 Edit Profile
                             </button>
@@ -140,22 +157,35 @@ const Profile = () => {
             </div>
 
             {/* Content Area */}
-            <main className="max-w-2xl mx-auto px-4 py-8">
+            <main className="max-w-3xl mx-auto px-4 py-8">
                 {activeTab === 'posts' ? (
                     <div className="space-y-6">
                         {posts.length === 0 ? (
                             <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
                                 <span className="text-4xl block mb-2">📭</span>
-                                <p className="text-gray-500 text-lg">No posts yet.</p>
+                                <p className="text-gray-500 text-lg">No posts shared yet.</p>
                             </div>
                         ) : (
                             posts.map(post => <PostCard key={post.id} post={post} />)
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
-                        <span className="text-4xl block mb-2">🎓</span>
-                        <p className="text-gray-500 text-lg">Learning Plans coming soon...</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {userPlans.length === 0 ? (
+                            <div className="col-span-2 text-center py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
+                                <span className="text-4xl block mb-2">🎓</span>
+                                <p className="text-gray-500 text-lg">No active learning plans.</p>
+                            </div>
+                        ) : (
+                            userPlans.map(plan => (
+                                <PlanCard
+                                    key={plan.id}
+                                    plan={plan}
+                                    isOwner={isOwner}
+                                    onDelete={handleDeletePlan}
+                                />
+                            ))
+                        )}
                     </div>
                 )}
             </main>

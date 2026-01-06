@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import HomeFeed from './pages/HomeFeed';
 import Profile from './pages/Profile'; // <--- Import Profile
+import LearningPlans from './pages/LearningPlans'; // <--- Import this
 
 const PrivateRoute = ({ children }) => {
     const { user } = useAuth();
@@ -30,6 +31,18 @@ function App() {
                         <Route path="/profile/:userId" element={
                             <PrivateRoute>
                                 <Profile />
+                            </PrivateRoute>
+                        } />
+
+                        <Route path="/profile/:userId" element={
+                            <PrivateRoute>
+                                <Profile />
+                            </PrivateRoute>
+                        } />
+
+                        <Route path="/plans" element={
+                            <PrivateRoute>
+                                <LearningPlans />
                             </PrivateRoute>
                         } />
 

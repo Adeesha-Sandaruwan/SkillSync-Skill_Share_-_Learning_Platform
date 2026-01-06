@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
+import LoadingSpinner from '../components/LoadingSpinner'; // <--- Import High-End Loader
 import { useAuth } from '../context/AuthContext';
 
 const HomeFeed = () => {
@@ -50,6 +51,17 @@ const HomeFeed = () => {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Navbar />
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <LoadingSpinner variant="page" />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Navbar />
@@ -58,32 +70,43 @@ const HomeFeed = () => {
                 {/* Create Post Section */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 transition-shadow hover:shadow-md">
                     <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-bold text-lg">
-                            {user?.username?.charAt(0).toUpperCase()}
+                        {/* AVATAR LOGIC: Check for URL, otherwise show Initials */}
+                        <div className="w-12 h-12 rounded-full bg-blue-50 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100">
+                            {user?.avatarUrl ? (
+                                <img
+                                    src={user.avatarUrl}
+                                    alt={user.username}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <span className="text-blue-600 font-bold text-lg">
+                                    {user?.username?.charAt(0).toUpperCase()}
+                                </span>
+                            )}
                         </div>
+
                         <form onSubmit={handleCreatePost} className="flex-1">
-              <textarea
-                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none text-gray-700 placeholder-gray-400"
-                  rows="3"
-                  placeholder={`What's on your mind, ${user?.username}?`}
-                  value={newPost}
-                  onChange={(e) => setNewPost(e.target.value)}
-              />
+                            <textarea
+                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none text-gray-700 placeholder-gray-400"
+                                rows="3"
+                                placeholder={`What's on your mind, ${user?.username}?`}
+                                value={newPost}
+                                onChange={(e) => setNewPost(e.target.value)}
+                            />
                             <div className="flex justify-between items-center mt-3">
                                 <div className="text-xs text-gray-400 font-medium">
-                                    {/* Future: Add icons for image/video upload here */}
                                     Supports text & links
                                 </div>
                                 <button
                                     type="submit"
                                     disabled={isPosting || !newPost.trim()}
-                                    className={`px-6 py-2 rounded-lg font-medium text-sm text-white transition-all shadow-sm ${
+                                    className={`px-6 py-2 rounded-lg font-medium text-sm text-white transition-all shadow-sm flex items-center justify-center min-w-[100px] ${
                                         isPosting || !newPost.trim()
                                             ? 'bg-blue-300 cursor-not-allowed'
                                             : 'bg-blue-600 hover:bg-blue-700 hover:shadow-md active:transform active:scale-95'
                                     }`}
                                 >
-                                    {isPosting ? 'Posting...' : 'Share Post'}
+                                    {isPosting ? <LoadingSpinner variant="button" /> : 'Share Post'}
                                 </button>
                             </div>
                         </form>
@@ -97,26 +120,11 @@ const HomeFeed = () => {
                     </div>
                 )}
 
-                {loading ? (
-                    <div className="space-y-6">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="bg-white rounded-xl shadow-sm p-6 h-48 animate-pulse">
-                                <div className="flex space-x-4">
-                                    <div className="rounded-full bg-gray-200 h-10 w-10"></div>
-                                    <div className="flex-1 space-y-2 py-1">
-                                        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                                        <div className="h-4 bg-gray-200 rounded w-1/6"></div>
-                                    </div>
-                                </div>
-                                <div className="space-y-2 mt-4">
-                                    <div className="h-4 bg-gray-200 rounded"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : posts.length === 0 ? (
+                {posts.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
+                        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-3xl">✨</span>
+                        </div>
                         <p className="text-gray-500 text-lg">No posts yet. Be the first to share!</p>
                     </div>
                 ) : (

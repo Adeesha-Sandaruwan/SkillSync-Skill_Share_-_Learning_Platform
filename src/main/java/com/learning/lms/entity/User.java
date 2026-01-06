@@ -21,10 +21,8 @@ public class User {
 
     @Column(nullable = false)
     private String password;
-
-    // UPDATE THIS FIELD: Allow large strings (Base64 images)
-    @Column(columnDefinition = "LONGTEXT")
-    // Note: If you use PostgreSQL, use @Column(columnDefinition="TEXT")
+    // FIX: Change LONGTEXT to TEXT for PostgreSQL
+    @Column(columnDefinition = "TEXT")
     private String avatarUrl;
 
     @Column(columnDefinition = "TEXT")

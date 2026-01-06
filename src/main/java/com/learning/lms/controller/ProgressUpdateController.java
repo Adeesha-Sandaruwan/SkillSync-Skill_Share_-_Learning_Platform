@@ -1,37 +1,34 @@
 package com.learning.lms.controller;
 
-import com.learning.lms.dto.ProgressUpdateRequest;
 import com.learning.lms.entity.ProgressUpdate;
 import com.learning.lms.service.ProgressUpdateService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class ProgressUpdateController {
 
-    private final ProgressUpdateService updateService;
+    private final ProgressUpdateService progressService;
 
-    // POST /api/users/{userId}/updates (Add Update)
-    @PostMapping("/users/{userId}/updates")
-    public ResponseEntity<ProgressUpdate> addUpdate(@PathVariable Long userId, @Valid @RequestBody ProgressUpdateRequest request) {
-        return ResponseEntity.ok(updateService.addUpdate(userId, request));
+    @PostMapping("/users/{userId}/progress")
+    public ResponseEntity<ProgressUpdate> createUpdate(@PathVariable Long userId, @RequestBody Map<String, String> payload) {
+        return ResponseEntity.ok(progressService.createUpdate(userId, payload.get("content")));
     }
 
-    // GET /api/users/{userId}/updates (Get User's Journey)
-    @GetMapping("/users/{userId}/updates")
+    @GetMapping("/users/{userId}/progress")
     public ResponseEntity<List<ProgressUpdate>> getUserUpdates(@PathVariable Long userId) {
-        return ResponseEntity.ok(updateService.getUserUpdates(userId));
+        return ResponseEntity.ok(progressService.getUserUpdates(userId));
     }
 
-    // DELETE /api/updates/{updateId} (Delete Update)
-    @DeleteMapping("/updates/{updateId}")
-    public ResponseEntity<Void> deleteUpdate(@PathVariable Long updateId) {
-        updateService.deleteUpdate(updateId);
+    @DeleteMapping("/progress/{id}")
+    public ResponseEntity<Void> deleteUpdate(@PathVariable Long id) {
+        progressService.deleteUpdate(id);
         return ResponseEntity.noContent().build();
     }
 }

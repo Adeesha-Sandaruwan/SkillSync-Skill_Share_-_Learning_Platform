@@ -1,33 +1,32 @@
 package com.learning.lms.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 
+@Entity
 @Data
-@Entity  // <--- This is the line that was likely missing or not picked up
-@Table(name = "progress_update")
+@Table(name = "progress_updates")
 public class ProgressUpdate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // The error happened because the service looked for 'updateText' but we name it 'content' here
     @Column(nullable = false)
-    private String updateText;
+    private String content;
 
-    private String status;
+    private LocalDateTime createdAt;
 
-    private LocalDateTime postedAt;
-
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore
+    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates"})
     private User user;
 
     @PrePersist
     protected void onCreate() {
-        this.postedAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
     }
 }

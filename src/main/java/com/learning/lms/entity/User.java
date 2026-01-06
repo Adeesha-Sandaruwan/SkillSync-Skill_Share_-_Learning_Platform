@@ -4,31 +4,32 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
 
-@Data
 @Entity
-@Table(name = "app_user")
+@Data
+@Table(name = "users")
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)
     private String password;
-
-    private String bio;
-
+    // FIX: Change LONGTEXT to TEXT for PostgreSQL
+    @Column(columnDefinition = "TEXT")
     private String avatarUrl;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SkillPost> posts;
+    @Column(columnDefinition = "TEXT")
+    private String bio;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<LearningPlan> learningPlans;
+    // ... (Keep your relationships/OneToMany mappings exactly as they were)
+    // Example:
+    // @OneToMany(mappedBy = "user")
+    // private List<SkillPost> posts;
 }

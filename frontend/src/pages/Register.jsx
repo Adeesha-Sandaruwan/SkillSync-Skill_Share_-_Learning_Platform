@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Register = () => {
     const [formData, setFormData] = useState({ username: '', email: '', password: '' });
@@ -14,7 +15,7 @@ const Register = () => {
     const validate = () => {
         const newErrors = {};
         if (!formData.username.trim()) newErrors.username = 'Username is required';
-        if (formData.username.length < 3) newErrors.username = 'Username must be at least 3 characters';
+        else if (formData.username.length < 3) newErrors.username = 'Username must be at least 3 characters';
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!formData.email) newErrors.email = 'Email is required';
@@ -52,61 +53,64 @@ const Register = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform transition-all hover:shadow-2xl">
                 <div className="text-center">
-                    <h2 className="mt-2 text-3xl font-extrabold text-gray-900">Create Account</h2>
-                    <p className="mt-2 text-sm text-gray-600">Join the learning community today</p>
+                    <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                        <span className="text-2xl">🚀</span>
+                    </div>
+                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Create Account</h2>
+                    <p className="mt-2 text-sm text-gray-500">Join the professional learning network</p>
                 </div>
 
                 {apiError && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-fade-in">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm text-red-700">{apiError}</p>
+                                <p className="text-sm text-red-700 font-medium">{apiError}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="rounded-md shadow-sm space-y-4">
+                    <div className="space-y-5">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
                             <input
                                 name="username"
                                 type="text"
-                                className={`appearance-none relative block w-full px-3 py-3 border ${errors.username ? 'border-red-300' : 'border-gray-300'} placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition-colors`}
+                                className={`w-full px-4 py-3 rounded-lg border ${errors.username ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none`}
                                 placeholder="johndoe"
                                 value={formData.username}
                                 onChange={handleChange}
                             />
-                            {errors.username && <p className="mt-1 text-xs text-red-500">{errors.username}</p>}
+                            {errors.username && <p className="mt-1 text-xs text-red-500 font-medium">{errors.username}</p>}
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
                             <input
                                 name="email"
                                 type="email"
-                                className={`appearance-none relative block w-full px-3 py-3 border ${errors.email ? 'border-red-300' : 'border-gray-300'} placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition-colors`}
+                                className={`w-full px-4 py-3 rounded-lg border ${errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none`}
                                 placeholder="john@example.com"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
-                            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+                            {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
                             <input
                                 name="password"
                                 type="password"
-                                className={`appearance-none relative block w-full px-3 py-3 border ${errors.password ? 'border-red-300' : 'border-gray-300'} placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition-colors`}
+                                className={`w-full px-4 py-3 rounded-lg border ${errors.password ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none`}
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={handleChange}
                             />
-                            {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+                            {errors.password && <p className="mt-1 text-xs text-red-500 font-medium">{errors.password}</p>}
                         </div>
                     </div>
 
@@ -114,22 +118,21 @@ const Register = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white ${isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 shadow-md hover:shadow-lg`}
+                            className={`w-full flex justify-center items-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-xl text-white shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${
+                                isLoading
+                                    ? 'bg-indigo-400 cursor-not-allowed shadow-none'
+                                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30'
+                            }`}
                         >
-                            {isLoading ? (
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            ) : 'Create Account'}
+                            {isLoading ? <LoadingSpinner variant="button" /> : 'Create Account'}
                         </button>
                     </div>
 
                     <div className="text-center">
                         <p className="text-sm text-gray-600">
                             Already have an account?{' '}
-                            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
-                                Sign in
+                            <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors">
+                                Sign in here
                             </Link>
                         </p>
                     </div>

@@ -12,10 +12,15 @@ const api = axios.create({
 // Add a "Interceptor" to attach the Token to every request if user is logged in
 api.interceptors.request.use((config) => {
     const user = JSON.parse(localStorage.getItem('user'));
+
     if (user && user.auth) {
-        config.auth = user.auth; // Using Basic Auth for now as per simple setup
+        // FIX: We must set the Header directly, not config.auth
+        config.headers.Authorization = user.auth;
     }
+
     return config;
+}, (error) => {
+    return Promise.reject(error);
 });
 
 export default api;

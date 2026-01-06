@@ -1,8 +1,12 @@
 package com.learning.lms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Data
@@ -28,8 +32,27 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    // ... (Keep your relationships/OneToMany mappings exactly as they were)
-    // Example:
-    // @OneToMany(mappedBy = "user")
-    // private List<SkillPost> posts;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_follows",
+            joinColumns = @JoinColumn(name = "follower_id"),
+            inverseJoinColumns = @JoinColumn(name = "following_id")
+    )
+    @JsonIgnore
+    private Set<User> following = new HashSet<>();
+
+    @ManyToMany(mappedBy = "following", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private Set<User> followers = new HashSet<>();
+
+    // Helper methods to keep code clean
+    public void follow(User user) {
+        this.following.add(user);
+        user.getFollowers().add(this);
+    }
+
+    public void unfollow(User user) {
+        this.following.remove(user);
+        user.getFollowers().remove(this);
+    }
 }

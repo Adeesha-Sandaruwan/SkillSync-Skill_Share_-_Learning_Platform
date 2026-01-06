@@ -68,6 +68,43 @@ public class UserService {
             user.setAvatarUrl(request.getAvatarUrl());
         }
 
+
+
         return userRepository.save(user);
+    }
+
+    public void followUser(Long followerId, Long targetUserId) {
+        if (followerId.equals(targetUserId)) {
+            throw new RuntimeException("You cannot follow yourself");
+        }
+
+        User follower = getUserById(followerId);
+        User target = getUserById(targetUserId);
+
+        follower.follow(target);
+        userRepository.save(follower);
+    }
+
+    public void unfollowUser(Long followerId, Long targetUserId) {
+        User follower = getUserById(followerId);
+        User target = getUserById(targetUserId);
+
+        follower.unfollow(target);
+        userRepository.save(follower);
+    }
+
+    public boolean isFollowing(Long followerId, Long targetUserId) {
+        User follower = getUserById(followerId);
+        User target = getUserById(targetUserId);
+        return follower.getFollowing().contains(target);
+    }
+
+    // Get counts for the profile page
+    public long getFollowerCount(Long userId) {
+        return getUserById(userId).getFollowers().size();
+    }
+
+    public long getFollowingCount(Long userId) {
+        return getUserById(userId).getFollowing().size();
     }
 }

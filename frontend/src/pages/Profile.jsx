@@ -4,7 +4,7 @@ import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
 import PlanCard from '../components/PlanCard';
-import ProgressCard from '../components/ProgressCard'; // <--- Import this
+import ProgressCard from '../components/ProgressCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EditProfileModal from '../components/EditProfileModal';
 import { useAuth } from '../context/AuthContext';
@@ -16,14 +16,18 @@ const Profile = () => {
     const [profileUser, setProfileUser] = useState(null);
     const [posts, setPosts] = useState([]);
     const [userPlans, setUserPlans] = useState([]);
-    const [progressUpdates, setProgressUpdates] = useState([]); // <--- State for Progress
+    const [progressUpdates, setProgressUpdates] = useState([]);
 
-    const [stats, setStats] = useState({ totalLikes: 0, totalPosts: 0, totalPlans: 0 });
+    const [stats, setStats] = useState({ totalLikes: 0, totalPosts: 0, totalPlans: 0, followers: 0, following: 0 });
     const [activeTab, setActiveTab] = useState('posts');
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
 
-    // New Update Input State
+    // Follow State
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [loadingFollow, setLoadingFollow] = useState(false);
+
+    // Update State
     const [newUpdate, setNewUpdate] = useState('');
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
@@ -34,29 +38,55 @@ const Profile = () => {
     const fetchProfileData = async () => {
         try {
             setLoading(true);
-            const [userRes, postsRes, plansRes, progressRes] = await Promise.all([
+            const [userRes, postsRes, plansRes, progressRes, followRes, statsRes] = await Promise.all([
                 api.get(`/users/${userId}`),
                 api.get(`/users/${userId}/posts`),
                 api.get(`/users/${userId}/plans`),
-                api.get(`/users/${userId}/progress`) // <--- Fetch Progress
+                api.get(`/users/${userId}/progress`),
+                // Check if I am following this user
+                api.get(`/users/${userId}/is-following?followerId=${currentUser.id}`),
+                // Get Follow Stats
+                api.get(`/users/${userId}/stats`)
             ]);
 
             setProfileUser(userRes.data);
             setPosts(postsRes.data);
             setUserPlans(plansRes.data);
             setProgressUpdates(progressRes.data);
+            setIsFollowing(followRes.data);
 
             const likes = postsRes.data.reduce((acc, post) => acc + (post.likeCount || 0), 0);
             setStats({
                 totalLikes: likes,
                 totalPosts: postsRes.data.length,
-                totalPlans: plansRes.data.length
+                totalPlans: plansRes.data.length,
+                followers: statsRes.data.followers,
+                following: statsRes.data.following
             });
 
         } catch (error) {
             console.error("Error loading profile:", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleFollowToggle = async () => {
+        setLoadingFollow(true);
+        try {
+            if (isFollowing) {
+                await api.post(`/users/${userId}/unfollow?followerId=${currentUser.id}`);
+                setIsFollowing(false);
+                setStats(prev => ({ ...prev, followers: prev.followers - 1 }));
+            } else {
+                await api.post(`/users/${userId}/follow?followerId=${currentUser.id}`);
+                setIsFollowing(true);
+                setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
+            }
+        } catch (error) {
+            console.error("Follow action failed", error);
+        } finally {
+            setLoadingFollow(false);
         }
     };
 
@@ -67,7 +97,7 @@ const Profile = () => {
         setSubmittingUpdate(true);
         try {
             const response = await api.post(`/users/${currentUser.id}/progress`, { content: newUpdate });
-            setProgressUpdates([response.data, ...progressUpdates]); // Add to top
+            setProgressUpdates([response.data, ...progressUpdates]);
             setNewUpdate('');
         } catch (error) {
             alert("Failed to post update");
@@ -106,15 +136,39 @@ const Profile = () => {
                             )}
                         </div>
                         <div className="flex-1 text-center md:text-left pt-2">
-                            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{profileUser.username}</h1>
+                            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-2">
+                                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{profileUser.username}</h1>
+
+                                {/* Action Buttons */}
+                                {!isOwner && (
+                                    <button
+                                        onClick={handleFollowToggle}
+                                        disabled={loadingFollow}
+                                        className={`px-6 py-2 rounded-full font-bold text-sm transition-all transform active:scale-95 ${
+                                            isFollowing
+                                                ? 'bg-white border-2 border-gray-200 text-gray-700 hover:border-red-200 hover:text-red-600'
+                                                : 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700'
+                                        }`}
+                                    >
+                                        {loadingFollow ? '...' : (isFollowing ? 'Following' : 'Follow')}
+                                    </button>
+                                )}
+                                {isOwner && (
+                                    <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200">
+                                        Edit Profile
+                                    </button>
+                                )}
+                            </div>
+
                             {profileUser.bio && <p className="text-gray-600 mt-1 max-w-lg">{profileUser.bio}</p>}
+
                             <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-8">
+                                <div className="text-center"><div className="text-2xl font-bold text-gray-900">{stats.followers}</div><div className="text-xs font-semibold text-gray-500 uppercase">Followers</div></div>
+                                <div className="text-center"><div className="text-2xl font-bold text-gray-900">{stats.following}</div><div className="text-xs font-semibold text-gray-500 uppercase">Following</div></div>
                                 <div className="text-center"><div className="text-2xl font-bold text-gray-900">{stats.totalPosts}</div><div className="text-xs font-semibold text-gray-500 uppercase">Skills</div></div>
                                 <div className="text-center"><div className="text-2xl font-bold text-gray-900">{stats.totalLikes}</div><div className="text-xs font-semibold text-gray-500 uppercase">Likes</div></div>
-                                <div className="text-center"><div className="text-2xl font-bold text-gray-900">{stats.totalPlans}</div><div className="text-xs font-semibold text-gray-500 uppercase">Plans</div></div>
                             </div>
                         </div>
-                        {isOwner && <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200">Edit Profile</button>}
                     </div>
 
                     <div className="mt-10 border-b border-gray-200 flex space-x-8">
@@ -151,7 +205,6 @@ const Profile = () => {
                 {/* PROGRESS TAB */}
                 {activeTab === 'progress' && (
                     <div className="space-y-6">
-                        {/* Input for Owner */}
                         {isOwner && (
                             <form onSubmit={handlePostUpdate} className="flex gap-4 p-4 bg-white rounded-xl shadow-sm border border-blue-100">
                                 <input
@@ -166,8 +219,6 @@ const Profile = () => {
                                 </button>
                             </form>
                         )}
-
-                        {/* List */}
                         {progressUpdates.length === 0 ? (
                             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300 text-gray-500">No updates yet.</div>
                         ) : (

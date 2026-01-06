@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -24,4 +26,29 @@ public class UserController {
     public ResponseEntity<User> updateUserProfile(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
     }
+
+    @PostMapping("/{userId}/follow")
+    public ResponseEntity<Void> followUser(@PathVariable Long userId, @RequestParam Long followerId) {
+        userService.followUser(followerId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{userId}/unfollow")
+    public ResponseEntity<Void> unfollowUser(@PathVariable Long userId, @RequestParam Long followerId) {
+        userService.unfollowUser(followerId, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{userId}/is-following")
+    public ResponseEntity<Boolean> isFollowing(@PathVariable Long userId, @RequestParam Long followerId) {
+        return ResponseEntity.ok(userService.isFollowing(followerId, userId));
+    }
+
+    @GetMapping("/{userId}/stats")
+    public ResponseEntity<Map<String, Long>> getUserStats(@PathVariable Long userId) {
+        return ResponseEntity.ok(Map.of(
+                "followers", userService.getFollowerCount(userId),
+                "following", userService.getFollowingCount(userId)
+        ));
+}
 }

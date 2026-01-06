@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import HomeFeed from './pages/HomeFeed';
 
 const PrivateRoute = ({ children }) => {
     const { user } = useAuth();
@@ -17,13 +18,9 @@ function App() {
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
 
-                        {/* Protected Route Placeholder */}
                         <Route path="/" element={
                             <PrivateRoute>
-                                <div className="p-10 text-center">
-                                    <h1 className="text-4xl font-bold text-blue-600">Welcome to SkillSync</h1>
-                                    <p className="mt-4 text-xl">You are logged in!</p>
-                                </div>
+                                <HomeFeed />
                             </PrivateRoute>
                         } />
                     </Routes>

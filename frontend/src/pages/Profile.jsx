@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
-import PostCard from '../components/PostCard';
+import PostCard from '../components/PostCard'; // This now uses the new PostCard with likes/comments
 import PlanCard from '../components/PlanCard';
 import ProgressCard from '../components/ProgressCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -25,53 +25,78 @@ const Profile = () => {
 
     // UPDATE STATES
     const [newUpdate, setNewUpdate] = useState('');
-    const [updateType, setUpdateType] = useState('LEARNING'); // Default
+    const [updateType, setUpdateType] = useState('LEARNING');
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
     const fetchProfileData = useCallback(async () => {
+        if (!userId) return;
+
         try {
             setLoading(true);
-            const [userRes, postsRes, plansRes, progressRes, followRes, statsRes] = await Promise.all([
+
+            // Prepare requests
+            const requests = [
                 api.get(`/users/${userId}`),
                 api.get(`/posts/user/${userId}`),
                 api.get(`/users/${userId}/plans`),
                 api.get(`/users/${userId}/progress`),
-                api.get(`/users/${userId}/is-following?followerId=${currentUser.id}`),
                 api.get(`/users/${userId}/stats`)
-            ]);
+            ];
+
+            // Only check following status if logged in and not viewing own profile
+            if (currentUser && currentUser.id && String(currentUser.id) !== String(userId)) {
+                requests.push(api.get(`/users/${userId}/is-following?followerId=${currentUser.id}`));
+            } else {
+                requests.push(Promise.resolve({ data: false })); // Placeholder
+            }
+
+            const [userRes, postsRes, plansRes, progressRes, statsRes, followRes] = await Promise.all(requests);
 
             setProfileUser(userRes.data);
             setPosts(postsRes.data);
             setUserPlans(plansRes.data);
             setProgressUpdates(progressRes.data);
-            setIsFollowing(followRes.data);
 
-            const likes = postsRes.data.reduce((acc, post) => acc + (post.likedUserIds?.length || 0), 0);
+            // Handle follower stats safely
             setStats({
-                totalLikes: likes,
+                totalLikes: postsRes.data.reduce((acc, post) => acc + (post.likedUserIds?.length || 0), 0),
                 totalPosts: postsRes.data.length,
                 totalPlans: plansRes.data.length,
-                followers: statsRes.data.followers,
-                following: statsRes.data.following
+                followers: statsRes.data.followers || 0,
+                following: statsRes.data.following || 0
             });
-        } catch (error) { console.error(error); } finally { setLoading(false); }
-    }, [currentUser.id, userId]);
 
-    useEffect(() => { fetchProfileData(); }, [fetchProfileData]);
+            setIsFollowing(followRes.data);
+
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, currentUser]);
+
+    useEffect(() => {
+        fetchProfileData();
+    }, [fetchProfileData]);
 
     const handleFollowToggle = async () => {
+        if (!currentUser) return;
         setLoadingFollow(true);
         try {
             if (isFollowing) {
                 await api.post(`/users/${userId}/unfollow?followerId=${currentUser.id}`);
                 setIsFollowing(false);
-                setStats(p => ({ ...p, followers: p.followers - 1 }));
+                setStats(p => ({ ...p, followers: Math.max(0, p.followers - 1) }));
             } else {
                 await api.post(`/users/${userId}/follow?followerId=${currentUser.id}`);
                 setIsFollowing(true);
                 setStats(p => ({ ...p, followers: p.followers + 1 }));
             }
-        } catch (error) { console.error(error); } finally { setLoadingFollow(false); }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoadingFollow(false);
+        }
     };
 
     const handlePostUpdate = async (e) => {
@@ -85,19 +110,41 @@ const Profile = () => {
             });
             setProgressUpdates([response.data, ...progressUpdates]);
             setNewUpdate('');
-            setUpdateType('LEARNING'); // Reset
-        } catch (error) { alert("Failed to post update"); } finally { setSubmittingUpdate(false); }
+            setUpdateType('LEARNING');
+        } catch (error) {
+            alert("Failed to post update");
+        } finally {
+            setSubmittingUpdate(false);
+        }
     };
 
-    const handleDeletePlan = (id) => { setUserPlans(p => p.filter(pl => pl.id !== id)); setStats(p => ({...p, totalPlans: p.totalPlans - 1})); };
-    const handleProfileUpdate = (updated) => { setProfileUser(updated); };
+    const handleDeletePlan = (id) => {
+        setUserPlans(p => p.filter(pl => pl.id !== id));
+        setStats(p => ({...p, totalPlans: p.totalPlans - 1}));
+    };
 
-    if (loading) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="flex justify-center h-[60vh] items-center"><LoadingSpinner variant="page"/></div></div>;
-    if (!profileUser) return <div>User not found</div>;
+    const handleProfileUpdate = (updated) => {
+        setProfileUser(updated);
+    };
+
+    if (loading) return (
+        <div className="min-h-screen bg-slate-50">
+            <Navbar />
+            <div className="flex justify-center h-[60vh] items-center">
+                <LoadingSpinner variant="page"/>
+            </div>
+        </div>
+    );
+
+    if (!profileUser) return (
+        <div className="min-h-screen bg-slate-50">
+            <Navbar />
+            <div className="text-center pt-20">User not found</div>
+        </div>
+    );
 
     const isOwner = currentUser?.id === profileUser.id;
 
-    // Helper to render type selector buttons
     const TypeButton = ({ type, icon, label, color }) => (
         <button
             type="button"
@@ -133,7 +180,7 @@ const Profile = () => {
                                 {profileUser.avatarUrl ? (
                                     <img src={profileUser.avatarUrl} alt="Profile" className="w-full h-full object-cover"/>
                                 ) : (
-                                    <span className="text-4xl font-bold text-indigo-300">{profileUser.username.charAt(0).toUpperCase()}</span>
+                                    <span className="text-4xl font-bold text-indigo-300">{profileUser.username?.charAt(0).toUpperCase()}</span>
                                 )}
                             </div>
                         </div>
@@ -150,7 +197,11 @@ const Profile = () => {
                             {isOwner ? (
                                 <button onClick={() => setIsEditing(true)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">Edit Profile</button>
                             ) : (
-                                <button onClick={handleFollowToggle} disabled={loadingFollow} className={`px-8 py-2.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 ${isFollowing ? 'bg-white border-2 border-slate-200 text-slate-600' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'}`}>
+                                <button
+                                    onClick={handleFollowToggle}
+                                    disabled={loadingFollow}
+                                    className={`px-8 py-2.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 ${isFollowing ? 'bg-white border-2 border-slate-200 text-slate-600' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'}`}
+                                >
                                     {loadingFollow ? '...' : (isFollowing ? 'Following' : 'Follow')}
                                 </button>
                             )}

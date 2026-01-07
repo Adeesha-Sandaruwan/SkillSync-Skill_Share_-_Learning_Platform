@@ -1,12 +1,19 @@
 package com.learning.lms.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.learning.lms.enums.ProgressType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@Data
 @Table(name = "progress_updates")
 public class ProgressUpdate {
 
@@ -14,19 +21,18 @@ public class ProgressUpdate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // The error happened because the service looked for 'updateText' but we name it 'content' here
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1000)
     private String content;
 
+    // NEW FIELD: Stores if it is a Milestone, Blocker, etc.
+    @Enumerated(EnumType.STRING)
+    private ProgressType type = ProgressType.LEARNING;
+
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates"})
+    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "followers", "following", "notifications"})
     private User user;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 }

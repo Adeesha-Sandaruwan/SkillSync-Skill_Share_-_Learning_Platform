@@ -22,7 +22,10 @@ const Profile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [loadingFollow, setLoadingFollow] = useState(false);
+
+    // UPDATE STATES
     const [newUpdate, setNewUpdate] = useState('');
+    const [updateType, setUpdateType] = useState('LEARNING'); // Default
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
     const fetchProfileData = useCallback(async () => {
@@ -76,9 +79,13 @@ const Profile = () => {
         if (!newUpdate.trim()) return;
         setSubmittingUpdate(true);
         try {
-            const response = await api.post(`/users/${currentUser.id}/progress`, { content: newUpdate });
+            const response = await api.post(`/users/${currentUser.id}/progress`, {
+                content: newUpdate,
+                type: updateType
+            });
             setProgressUpdates([response.data, ...progressUpdates]);
             setNewUpdate('');
+            setUpdateType('LEARNING'); // Reset
         } catch (error) { alert("Failed to post update"); } finally { setSubmittingUpdate(false); }
     };
 
@@ -90,11 +97,26 @@ const Profile = () => {
 
     const isOwner = currentUser?.id === profileUser.id;
 
+    // Helper to render type selector buttons
+    const TypeButton = ({ type, icon, label, color }) => (
+        <button
+            type="button"
+            onClick={() => setUpdateType(type)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                updateType === type
+                    ? `${color} shadow-sm transform scale-105`
+                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+            }`}
+        >
+            <span>{icon}</span> {label}
+        </button>
+    );
+
     return (
         <div className="min-h-screen bg-slate-50">
             <Navbar />
 
-            {/* Gradient Banner */}
+            {/* Banner */}
             <div className="h-48 md:h-64 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
             </div>
@@ -177,11 +199,35 @@ const Profile = () => {
                     {activeTab === 'progress' && (
                         <div className="space-y-6">
                             {isOwner && (
-                                <form onSubmit={handlePostUpdate} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4">
-                                    <input type="text" placeholder="Share a quick win..." className="flex-1 bg-slate-50 border-transparent rounded-xl px-4 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" value={newUpdate} onChange={e => setNewUpdate(e.target.value)} />
-                                    <button disabled={submittingUpdate || !newUpdate.trim()} className="bg-emerald-500 text-white px-6 rounded-xl font-bold hover:bg-emerald-600 transition-colors disabled:opacity-50">Post</button>
-                                </form>
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                                    <form onSubmit={handlePostUpdate} className="flex flex-col gap-4">
+                                        <textarea
+                                            placeholder="What's happening on your journey?"
+                                            className="w-full bg-slate-50 border-transparent rounded-xl p-4 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"
+                                            rows="2"
+                                            value={newUpdate}
+                                            onChange={e => setNewUpdate(e.target.value)}
+                                        />
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex gap-2 flex-wrap">
+                                                <TypeButton type="LEARNING" icon="💡" label="Learned" color="bg-blue-100 text-blue-700 ring-2 ring-blue-500/20" />
+                                                <TypeButton type="MILESTONE" icon="🏆" label="Milestone" color="bg-amber-100 text-amber-700 ring-2 ring-amber-500/20" />
+                                                <TypeButton type="BLOCKER" icon="🚧" label="Blocker" color="bg-red-100 text-red-700 ring-2 ring-red-500/20" />
+                                                <TypeButton type="RESOURCE" icon="📚" label="Resource" color="bg-purple-100 text-purple-700 ring-2 ring-purple-500/20" />
+                                            </div>
+
+                                            <button
+                                                disabled={submittingUpdate || !newUpdate.trim()}
+                                                className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-800 transition-colors disabled:opacity-50 text-sm shadow-lg"
+                                            >
+                                                {submittingUpdate ? '...' : 'Post Update'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             )}
+
                             {progressUpdates.length === 0 ? <EmptyState msg="No updates yet" /> : progressUpdates.map(u => <ProgressCard key={u.id} update={u} />)}
                         </div>
                     )}

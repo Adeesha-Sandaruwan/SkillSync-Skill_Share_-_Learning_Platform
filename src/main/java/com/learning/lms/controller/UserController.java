@@ -2,11 +2,13 @@ package com.learning.lms.controller;
 
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
+import com.learning.lms.repository.UserRepository; // Added Import
 import com.learning.lms.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List; // Added Import
 import java.util.Map;
 
 @RestController
@@ -15,13 +17,22 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository; // Inject Repository for Search
 
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserProfile(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
-    // NEW ENDPOINT: Edit Profile
+    // --- NEW: Search Endpoint ---
+    @GetMapping("/search")
+    public ResponseEntity<List<User>> searchUsers(@RequestParam("q") String query) {
+        if (query == null || query.trim().length() < 2) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(userRepository.searchUsers(query));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUserProfile(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
@@ -50,5 +61,5 @@ public class UserController {
                 "followers", userService.getFollowerCount(userId),
                 "following", userService.getFollowingCount(userId)
         ));
-}
+    }
 }

@@ -1,6 +1,6 @@
 package com.learning.lms.config;
 
-import com.learning.lms.repository.UserRepository;
+import com.learning.lms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 @RequiredArgsConstructor
-public class AppConfig {
+public class ApplicationConfig {
 
     private final UserRepository repository;
 
@@ -27,6 +27,8 @@ public class AppConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
+        // The error you saw suggests the compiler assumes a non-standard constructor.
+        // The code below is the standard Spring Security 6 implementation.
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService());
         authProvider.setPasswordEncoder(passwordEncoder());

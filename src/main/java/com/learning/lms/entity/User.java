@@ -5,7 +5,11 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -13,7 +17,7 @@ import java.util.Set;
 @Entity
 @Data
 @Table(name = "users")
-public class User {
+public class User implements UserDetails { // <--- THIS IS THE KEY FIX
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,8 +43,8 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    @ToString.Exclude // Stop Infinite Loop
-    @EqualsAndHashCode.Exclude // Stop Infinite Loop
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<SkillPost> posts;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -61,7 +65,7 @@ public class User {
     @EqualsAndHashCode.Exclude
     private List<Comment> comments;
 
-    // --- Follow System ( The Problem Area ) ---
+    // --- Follow System ---
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -70,14 +74,14 @@ public class User {
             inverseJoinColumns = @JoinColumn(name = "following_id")
     )
     @JsonIgnore
-    @ToString.Exclude // CRITICAL FIX
-    @EqualsAndHashCode.Exclude // CRITICAL FIX
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<User> following = new HashSet<>();
 
     @ManyToMany(mappedBy = "following", fetch = FetchType.LAZY)
     @JsonIgnore
-    @ToString.Exclude // CRITICAL FIX
-    @EqualsAndHashCode.Exclude // CRITICAL FIX
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<User> followers = new HashSet<>();
 
     public void follow(User user) {
@@ -89,4 +93,23 @@ public class User {
         this.following.remove(user);
         user.getFollowers().remove(this);
     }
+
+    // --- SPRING SECURITY METHODS (Must be here) ---
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() { return true; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() { return true; }
 }

@@ -6,8 +6,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,10 +31,35 @@ public class AppConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService());
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
+        // We are manually implementing the provider to bypass the 'DaoAuthenticationProvider' error
+        return new AuthenticationProvider() {
+            @Override
+            public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+                String username = authentication.getName();
+                String password = authentication.getCredentials().toString();
+
+                // 1. Load the user
+                UserDetails user = userDetailsService().loadUserByUsername(username);
+
+                // 2. Check the password
+                if (!passwordEncoder().matches(password, user.getPassword())) {
+                    throw new BadCredentialsException("Invalid password");
+                }
+
+                // 3. Check if account is enabled/locked (optional safety check)
+                if (!user.isEnabled() || !user.isAccountNonLocked()) {
+                    throw new BadCredentialsException("Account is disabled or locked");
+                }
+
+                // 4. Return authenticated token
+                return new UsernamePasswordAuthenticationToken(user, password, user.getAuthorities());
+            }
+
+            @Override
+            public boolean supports(Class<?> authentication) {
+                return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
+            }
+        };
     }
 
     @Bean

@@ -1,30 +1,30 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { useState } from 'react';
 import api from '../services/api';
-
-const AuthContext = createContext();
-
-export const useAuth = () => useContext(AuthContext);
+import AuthContext from './authContext.js';
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
+    const [user, setUser] = useState(() => {
         const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+        if (!storedUser) return null;
+
+        try {
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser?.token) return parsedUser;
+        } catch {
+            // ignore
         }
-        setLoading(false);
-    }, []);
+
+        localStorage.removeItem('user');
+        return null;
+    });
+
+    const [loading] = useState(false);
 
     const login = async (username, password) => {
-        // We store the password for Basic Auth (Simple approach for this assignment)
-        const basicAuthToken = 'Basic ' + btoa(username + ":" + password);
-
         try {
             const response = await api.post('/auth/login', { username, password });
 
-            const userData = { ...response.data, auth: basicAuthToken };
+            const userData = { ...response.data.user, token: response.data.token };
 
             localStorage.setItem('user', JSON.stringify(userData));
             setUser(userData);

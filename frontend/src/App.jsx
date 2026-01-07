@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext.jsx';
+import { useAuth } from './context/useAuth';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import HomeFeed from './pages/HomeFeed';
@@ -25,12 +26,6 @@ function App() {
                         <Route path="/" element={
                             <PrivateRoute>
                                 <HomeFeed />
-                            </PrivateRoute>
-                        } />
-
-                        <Route path="/profile/:userId" element={
-                            <PrivateRoute>
-                                <Profile />
                             </PrivateRoute>
                         } />
 

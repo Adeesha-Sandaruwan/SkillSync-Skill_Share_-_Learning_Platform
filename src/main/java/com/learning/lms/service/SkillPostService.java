@@ -7,6 +7,7 @@ import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -16,7 +17,7 @@ public class SkillPostService {
 
     private final SkillPostRepository postRepository;
     private final UserRepository userRepository;
-    private final NotificationService notificationService; // INJECTED
+    private final NotificationService notificationService;
 
     public List<SkillPost> getAllPosts() {
         return postRepository.findAllByOrderByCreatedAtDesc();
@@ -30,13 +31,27 @@ public class SkillPostService {
         return postRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    public SkillPost createPost(Long userId, SkillPost postData) {
+    @Transactional
+    public SkillPost createPost(Long userId, String description, String imageUrl) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        postData.setUser(user);
-        return postRepository.save(postData);
+
+        SkillPost post = SkillPost.builder()
+                .description(description)
+                .imageUrl(imageUrl)
+                .user(user)
+                .build();
+
+        return postRepository.save(post);
     }
 
+    // Overloaded method to handle object input if needed by Controller
+    @Transactional
+    public SkillPost createPost(Long userId, SkillPost postData) {
+        return createPost(userId, postData.getDescription(), postData.getImageUrl());
+    }
+
+    @Transactional
     public SkillPost updatePost(Long postId, String newDescription) {
         SkillPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -44,6 +59,7 @@ public class SkillPostService {
         return postRepository.save(post);
     }
 
+    @Transactional
     public void deletePost(Long postId) {
         if (!postRepository.existsById(postId)) {
             throw new RuntimeException("Post not found");
@@ -51,6 +67,7 @@ public class SkillPostService {
         postRepository.deleteById(postId);
     }
 
+    @Transactional
     public SkillPost toggleLike(Long postId, Long userId) {
         SkillPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -63,7 +80,7 @@ public class SkillPostService {
         } else {
             post.getLikedUserIds().add(userId);
 
-            // TRIGGER NOTIFICATION
+            // THIS NOW WORKS because you have the Notification files
             notificationService.createNotification(
                     post.getUser(),
                     liker,

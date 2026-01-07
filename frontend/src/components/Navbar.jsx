@@ -1,6 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useState } from 'react';
+import { useAuth } from '../context/useAuth';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -36,7 +35,7 @@ const Navbar = () => {
 
                         <div className="ml-4 flex items-center gap-4 pl-4 border-l border-gray-200">
                             <div className="flex items-center gap-3">
-                                <div className="flex flex-col items-end hidden md:flex">
+                                <div className="hidden md:flex md:flex-col md:items-end">
                                     <span className="text-sm font-bold text-gray-900">{user?.username}</span>
                                     <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Member</span>
                                 </div>

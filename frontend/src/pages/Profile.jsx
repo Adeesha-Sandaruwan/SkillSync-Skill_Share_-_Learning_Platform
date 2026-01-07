@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
@@ -7,7 +7,7 @@ import PlanCard from '../components/PlanCard';
 import ProgressCard from '../components/ProgressCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EditProfileModal from '../components/EditProfileModal';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 const Profile = () => {
     const { userId } = useParams();
@@ -32,16 +32,12 @@ const Profile = () => {
     const [newUpdate, setNewUpdate] = useState('');
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
-    useEffect(() => {
-        fetchProfileData();
-    }, [userId]);
-
-    const fetchProfileData = async () => {
+    const fetchProfileData = useCallback(async () => {
         try {
             setLoading(true);
             const [userRes, postsRes, plansRes, progressRes, followRes, statsRes] = await Promise.all([
                 api.get(`/users/${userId}`),
-                api.get(`/users/${userId}/posts`),
+                api.get(`/posts/user/${userId}`),
                 api.get(`/users/${userId}/plans`),
                 api.get(`/users/${userId}/progress`),
                 // Check if I am following this user
@@ -58,7 +54,7 @@ const Profile = () => {
 
             // CALCULATE TOTAL LIKES
             // We use the new 'likeCount' field from the Backend SkillPost entity
-            const likes = postsRes.data.reduce((acc, post) => acc + (post.likeCount || 0), 0);
+            const likes = postsRes.data.reduce((acc, post) => acc + (post.likedUserIds?.length || 0), 0);
 
             setStats({
                 totalLikes: likes,
@@ -73,7 +69,11 @@ const Profile = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentUser.id, userId]);
+
+    useEffect(() => {
+        fetchProfileData();
+    }, [fetchProfileData]);
 
     const handleFollowToggle = async () => {
         setLoadingFollow(true);
@@ -104,6 +104,7 @@ const Profile = () => {
             setProgressUpdates([response.data, ...progressUpdates]);
             setNewUpdate('');
         } catch (error) {
+            console.error(error);
             alert("Failed to post update");
         } finally {
             setSubmittingUpdate(false);

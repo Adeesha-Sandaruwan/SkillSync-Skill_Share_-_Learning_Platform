@@ -1,5 +1,6 @@
 package com.learning.lms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -24,6 +25,7 @@ public class Comment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id")
     @JsonIgnoreProperties("comments")
+    @JsonIgnore
     private SkillPost post;
 
     @PrePersist

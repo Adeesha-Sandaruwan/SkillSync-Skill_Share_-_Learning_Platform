@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import LoadingSpinner from './LoadingSpinner';
 
 const CommentSection = ({ postId }) => {
@@ -10,11 +10,7 @@ const CommentSection = ({ postId }) => {
     const [submitting, setSubmitting] = useState(false);
     const { user } = useAuth();
 
-    useEffect(() => {
-        fetchComments();
-    }, [postId]);
-
-    const fetchComments = async () => {
+    const fetchComments = useCallback(async () => {
         try {
             const response = await api.get(`/posts/${postId}/comments`);
             setComments(response.data);
@@ -23,7 +19,11 @@ const CommentSection = ({ postId }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [postId]);
+
+    useEffect(() => {
+        fetchComments();
+    }, [fetchComments]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,13 +31,15 @@ const CommentSection = ({ postId }) => {
 
         setSubmitting(true);
         try {
-            const response = await api.post(`/posts/${postId}/users/${user.id}/comments`, {
+            const response = await api.post(`/posts/${postId}/comments`, {
                 content: newComment
             });
+
             // Add new comment to top of list instantly
             setComments([response.data, ...comments]);
             setNewComment('');
         } catch (error) {
+            console.error(error);
             alert("Could not post comment. Please try again.");
         } finally {
             setSubmitting(false);
@@ -53,6 +55,7 @@ const CommentSection = ({ postId }) => {
         try {
             await api.delete(`/comments/${commentId}`);
         } catch (error) {
+            console.error(error);
             console.error("Failed to delete comment");
             fetchComments(); // Revert if failed
         }

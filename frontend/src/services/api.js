@@ -13,9 +13,10 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
     const user = JSON.parse(localStorage.getItem('user'));
 
-    if (user && user.auth) {
-        // FIX: We must set the Header directly, not config.auth
-        config.headers.Authorization = user.auth;
+    // FIX 1: Check for 'token', not 'auth' (unless you specifically renamed it)
+    if (user && user.token) {
+        // FIX 2: You MUST add "Bearer " before the token, or Java will reject it.
+        config.headers.Authorization = `Bearer ${user.token}`;
     }
 
     return config;

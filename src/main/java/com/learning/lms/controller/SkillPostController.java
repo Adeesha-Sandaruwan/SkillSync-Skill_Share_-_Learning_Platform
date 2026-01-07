@@ -1,57 +1,84 @@
 package com.learning.lms.controller;
 
 import com.learning.lms.entity.SkillPost;
+import com.learning.lms.entity.User;
+import com.learning.lms.repository.UserRepository;
 import com.learning.lms.service.SkillPostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/posts")
 @RequiredArgsConstructor
 public class SkillPostController {
 
-    private final SkillPostService postService;
+    private final SkillPostService skillPostService;
+    private final UserRepository userRepository;
 
-    @GetMapping("/posts")
-    public List<SkillPost> getAllPosts() {
-        return postService.getAllPosts();
+    @GetMapping
+    public ResponseEntity<List<SkillPost>> getAllPosts() {
+        return ResponseEntity.ok(skillPostService.getAllPosts());
     }
 
-    @GetMapping("/users/{userId}/posts")
-    public List<SkillPost> getUserPosts(@PathVariable Long userId) {
-        return postService.getUserPosts(userId);
+    @GetMapping("/feed")
+    public ResponseEntity<List<SkillPost>> getFeed(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(skillPostService.getFollowingPosts(user.getId()));
     }
 
-    @PostMapping("/users/{userId}/posts")
-    public SkillPost createPost(@PathVariable Long userId, @RequestBody SkillPost post) {
-        return postService.createPost(userId, post);
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<SkillPost>> getUserPosts(@PathVariable Long userId) {
+        return ResponseEntity.ok(skillPostService.getUserPosts(userId));
     }
 
-    @PutMapping("/posts/{postId}")
-    public ResponseEntity<SkillPost> updatePost(@PathVariable Long postId, @RequestBody Map<String, String> payload) {
-        return ResponseEntity.ok(postService.updatePost(postId, payload.get("description")));
+    @PostMapping
+    public ResponseEntity<SkillPost> createPost(
+            @RequestBody SkillPost postRequest,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return ResponseEntity.ok(
+                skillPostService.createPost(user.getId(), postRequest.getDescription(), postRequest.getImageUrl())
+        );
     }
 
-    @DeleteMapping("/posts/{postId}")
+    @PutMapping("/{postId}")
+    public ResponseEntity<SkillPost> updatePost(
+            @PathVariable Long postId,
+            @RequestBody SkillPost postRequest
+    ) {
+        return ResponseEntity.ok(skillPostService.updatePost(postId, postRequest.getDescription()));
+    }
+
+    @DeleteMapping("/{postId}")
     public ResponseEntity<Void> deletePost(@PathVariable Long postId) {
-        postService.deletePost(postId);
+        skillPostService.deletePost(postId);
         return ResponseEntity.noContent().build();
     }
 
-    // NEW: Like Endpoint
-    @PostMapping("/posts/{postId}/like")
-    public ResponseEntity<SkillPost> toggleLike(@PathVariable Long postId, @RequestParam Long userId) {
-        return ResponseEntity.ok(postService.toggleLike(postId, userId));
+    @PutMapping("/{postId}/like")
+    public ResponseEntity<SkillPost> toggleLike(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(skillPostService.toggleLike(postId, user.getId()));
     }
 
-
-    // NEW: Get Following Feed
-    @GetMapping("/users/{userId}/posts/following")
-    public List<SkillPost> getFollowingPosts(@PathVariable Long userId) {
-        return postService.getFollowingPosts(userId);
+    @PostMapping("/{postId}/like")
+    public ResponseEntity<SkillPost> toggleLikePost(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return toggleLike(postId, userDetails);
     }
 }

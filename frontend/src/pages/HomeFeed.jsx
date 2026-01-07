@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 const HomeFeed = () => {
     const [posts, setPosts] = useState([]);
@@ -17,17 +17,13 @@ const HomeFeed = () => {
 
     const { user } = useAuth();
 
-    useEffect(() => {
-        fetchPosts();
-    }, [activeTab]); // Refetch when tab changes
-
-    const fetchPosts = async () => {
+    const fetchPosts = useCallback(async () => {
         setLoading(true);
         try {
             let response;
             if (activeTab === 'following') {
                 // Fetch only posts from people I follow
-                response = await api.get(`/users/${user.id}/posts/following`);
+                response = await api.get('/posts/feed');
             } else {
                 // Fetch everything (Global Discovery)
                 response = await api.get('/posts');
@@ -40,7 +36,11 @@ const HomeFeed = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
+
+    useEffect(() => {
+        fetchPosts();
+    }, [fetchPosts]);
 
     const handleCreatePost = async (e) => {
         e.preventDefault();
@@ -48,9 +48,9 @@ const HomeFeed = () => {
 
         setIsPosting(true);
         try {
-            await api.post(`/users/${user.id}/posts`, {
+            await api.post('/posts', {
                 description: newPost,
-                mediaUrls: []
+                imageUrl: null
             });
             setNewPost('');
             // If we are on 'following' tab, switching to 'global' might be better

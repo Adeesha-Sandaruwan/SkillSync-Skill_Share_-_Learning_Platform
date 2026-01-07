@@ -5,6 +5,8 @@ import com.learning.lms.entity.Comment;
 import com.learning.lms.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -20,8 +22,23 @@ public class CommentController {
     public ResponseEntity<Comment> addComment(
             @PathVariable Long userId,
             @PathVariable Long postId,
-            @RequestBody CommentRequest request) { // Removed @Valid to keep it simple unless you added validation deps
+            @RequestBody CommentRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        if (userDetails != null) {
+            return ResponseEntity.ok(commentService.addCommentByUsername(userDetails.getUsername(), postId, request));
+        }
         return ResponseEntity.ok(commentService.addComment(userId, postId, request));
+    }
+
+    // POST (Add Comment) - preferred (uses JWT principal)
+    @PostMapping("/posts/{postId}/comments")
+    public ResponseEntity<Comment> addCommentToPost(
+            @PathVariable Long postId,
+            @RequestBody CommentRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(commentService.addCommentByUsername(userDetails.getUsername(), postId, request));
     }
 
     // GET (List Comments)

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner'; // <--- Import this
 
@@ -25,6 +25,7 @@ const Login = () => {
             await login(formData.username, formData.password);
             navigate('/');
         } catch (err) {
+            console.error(err);
             setError('Invalid credentials. Please check your username and password.');
         } finally {
             setIsLoading(false);

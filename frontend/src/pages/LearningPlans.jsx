@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PlanCard from '../components/PlanCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 const LearningPlans = () => {
     const [plans, setPlans] = useState([]);
@@ -22,11 +22,7 @@ const LearningPlans = () => {
         targetDate: ''
     });
 
-    useEffect(() => {
-        fetchPlans();
-    }, []);
-
-    const fetchPlans = async () => {
+    const fetchPlans = useCallback(async () => {
         try {
             const response = await api.get(`/users/${user.id}/plans`);
             setPlans(response.data);
@@ -35,7 +31,11 @@ const LearningPlans = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user.id]);
+
+    useEffect(() => {
+        fetchPlans();
+    }, [fetchPlans]);
 
     const handleCreate = async (e) => {
         e.preventDefault();

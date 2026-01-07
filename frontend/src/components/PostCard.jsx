@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import CommentSection from './CommentSection';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../services/api';
 
 const PostCard = ({ post }) => {
@@ -36,6 +36,7 @@ const PostCard = ({ post }) => {
                 await api.delete(`/posts/${post.id}`);
                 setIsDeleted(true);
             } catch (error) {
+                console.error(error);
                 alert("Failed to delete post.");
             }
         }
@@ -50,6 +51,7 @@ const PostCard = ({ post }) => {
             setIsEditing(false);
             setIsMenuOpen(false);
         } catch (error) {
+            console.error(error);
             alert("Failed to update post.");
         } finally {
             setIsSaving(false);
@@ -68,11 +70,12 @@ const PostCard = ({ post }) => {
         setLikeCount(liked ? likeCount - 1 : likeCount + 1);
 
         try {
-            await api.post(`/posts/${post.id}/like?userId=${user.id}`);
+            await api.put(`/posts/${post.id}/like`);
         } catch (error) {
             // Revert if error
             setLiked(previousLiked);
             setLikeCount(previousCount);
+            console.error(error);
             console.error("Failed to like post");
         } finally {
             setIsLiking(false);

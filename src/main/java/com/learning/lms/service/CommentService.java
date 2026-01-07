@@ -28,19 +28,42 @@ public class CommentService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        return addCommentInternal(user, post, request);
+    }
+
+    public Comment addCommentByUsername(String username, Long postId, CommentRequest request) {
+        SkillPost post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return addCommentInternal(user, post, request);
+    }
+
+    private Comment addCommentInternal(User user, SkillPost post, CommentRequest request) {
+        String content = request != null ? request.getContent() : null;
+        if (content == null) content = "";
+
         Comment comment = new Comment();
-        comment.setContent(request.getContent());
+        comment.setContent(content);
         comment.setPost(post);
         comment.setUser(user);
 
         Comment savedComment = commentRepository.save(comment);
 
         // TRIGGER NOTIFICATION
+        String message;
+        if (content.isBlank()) {
+            message = "commented on your post.";
+        } else {
+            message = "commented on your post: " + (content.length() > 20 ? content.substring(0, 20) + "..." : content);
+        }
+
         notificationService.createNotification(
                 post.getUser(),
                 user,
                 NotificationType.COMMENT,
-                "commented on your post: " + (request.getContent().length() > 20 ? request.getContent().substring(0, 20) + "..." : request.getContent()),
+                message,
                 post.getId()
         );
 

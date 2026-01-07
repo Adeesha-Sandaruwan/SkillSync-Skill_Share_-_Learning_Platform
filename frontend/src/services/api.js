@@ -1,0 +1,26 @@
+import axios from 'axios';
+
+const API_URL = 'http://localhost:8080/api';
+
+const api = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Add a "Interceptor" to attach the Token to every request if user is logged in
+api.interceptors.request.use((config) => {
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    if (user && user.auth) {
+        // FIX: We must set the Header directly, not config.auth
+        config.headers.Authorization = user.auth;
+    }
+
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
+
+export default api;

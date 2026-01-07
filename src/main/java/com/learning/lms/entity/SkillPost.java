@@ -21,8 +21,6 @@ public class SkillPost {
     @ElementCollection
     private List<String> mediaUrls;
 
-    // OLD: private int likeCount;
-    // NEW: Store IDs of users who liked this post
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "post_likes", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "user_id")
@@ -32,7 +30,7 @@ public class SkillPost {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments"})
+    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "followers", "following"})
     private User user;
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -42,5 +40,10 @@ public class SkillPost {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+
+    // THIS IS THE FIX FOR "0 LIKES"
+    public int getLikeCount() {
+        return likedUserIds.size();
     }
 }

@@ -47,4 +47,11 @@ public class SkillPostController {
     public ResponseEntity<SkillPost> toggleLike(@PathVariable Long postId, @RequestParam Long userId) {
         return ResponseEntity.ok(postService.toggleLike(postId, userId));
     }
+
+
+    // NEW: Get Following Feed
+    @GetMapping("/users/{userId}/posts/following")
+    public List<SkillPost> getFollowingPosts(@PathVariable Long userId) {
+        return postService.getFollowingPosts(userId);
+    }
 }

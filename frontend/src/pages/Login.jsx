@@ -1,93 +1,75 @@
 import { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
-import LoadingSpinner from '../components/LoadingSpinner'; // <--- Import this
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Login = () => {
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-
     const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.username || !formData.password) {
-            setError('Please enter both username and password');
-            return;
-        }
-
         setError('');
         setIsLoading(true);
-
         try {
             await login(formData.username, formData.password);
             navigate('/');
         } catch (err) {
-            console.error(err);
-            setError('Invalid credentials. Please check your username and password.');
+            setError('Invalid credentials.');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-                <div className="px-8 pt-8 pb-6 text-center">
-                    <h2 className="text-3xl font-extrabold text-gray-900">Welcome Back</h2>
-                    <p className="mt-2 text-sm text-gray-600">Sign in to access your learning journey</p>
-                </div>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-100 to-blue-100 p-4">
+            <div className="max-w-md w-full bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden transform transition-all hover:scale-[1.01]">
 
-                <div className="px-8 pb-8">
+                {/* Header Decoration */}
+                <div className="h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+
+                <div className="p-8 md:p-10">
+                    <div className="text-center mb-10">
+                        <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700">
+                            Welcome Back
+                        </h2>
+                        <p className="mt-2 text-slate-500 font-medium">Continue your learning journey</p>
+                    </div>
+
                     {error && (
-                        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-center">
-                            {error}
+                        <div className="mb-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-100 text-red-600 rounded-xl text-sm font-semibold flex items-center gap-2 animate-shake">
+                            ⚠️ {error}
                         </div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                            <input
-                                type="text"
-                                className="block w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                placeholder="Enter your username"
-                                value={formData.username}
-                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                            />
+                        <div className="group">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 group-focus-within:text-indigo-600 transition-colors">Username</label>
+                            <input type="text" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                                   placeholder="Enter your username" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input
-                                type="password"
-                                className="block w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                placeholder="Enter your password"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            />
+                        <div className="group">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 group-focus-within:text-indigo-600 transition-colors">Password</label>
+                            <input type="password" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                                   placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className={`w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 transform hover:-translate-y-0.5 ${
-                                isLoading
-                                    ? 'bg-blue-400 cursor-not-allowed shadow-none'
-                                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30'
-                            }`}
-                        >
+                        <button type="submit" disabled={isLoading} className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 active:scale-95 ${
+                            isLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                        }`}>
                             {isLoading ? <LoadingSpinner variant="button" /> : 'Sign In'}
                         </button>
                     </form>
 
-                    <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-600">
-                            Don't have an account?{' '}
-                            <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
-                                Create one now
+                    <div className="mt-8 text-center">
+                        <p className="text-slate-500 text-sm">
+                            New to SkillSync?{' '}
+                            <Link to="/register" className="font-bold text-indigo-600 hover:text-indigo-800 transition-colors underline decoration-2 underline-offset-4 decoration-indigo-200 hover:decoration-indigo-600">
+                                Create Account
                             </Link>
                         </p>
                     </div>

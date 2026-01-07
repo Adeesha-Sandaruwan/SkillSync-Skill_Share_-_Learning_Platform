@@ -8,22 +8,14 @@ const Register = () => {
     const [errors, setErrors] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     const [apiError, setApiError] = useState('');
-
     const { register } = useAuth();
     const navigate = useNavigate();
 
     const validate = () => {
         const newErrors = {};
-        if (!formData.username.trim()) newErrors.username = 'Username is required';
-        else if (formData.username.length < 3) newErrors.username = 'Username must be at least 3 characters';
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!formData.email) newErrors.email = 'Email is required';
-        else if (!emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
-
-        if (!formData.password) newErrors.password = 'Password is required';
-        else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-
+        if (formData.username.length < 3) newErrors.username = 'Min 3 chars required';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email';
+        if (formData.password.length < 6) newErrors.password = 'Min 6 chars required';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -31,15 +23,13 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setApiError('');
-
         if (!validate()) return;
-
         setIsLoading(true);
         try {
             await register(formData.username, formData.email, formData.password);
             navigate('/login');
         } catch (err) {
-            setApiError(err.response?.data?.message || 'Registration failed. Try a different username/email.');
+            setApiError(err.response?.data?.message || 'Registration failed.');
         } finally {
             setIsLoading(false);
         }
@@ -47,96 +37,54 @@ const Register = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+        setFormData(p => ({ ...p, [name]: value }));
+        if (errors[name]) setErrors(p => ({ ...p, [name]: '' }));
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform transition-all hover:shadow-2xl">
-                <div className="text-center">
-                    <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                        <span className="text-2xl">🚀</span>
-                    </div>
-                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Create Account</h2>
-                    <p className="mt-2 text-sm text-gray-500">Join the professional learning network</p>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-indigo-100 to-violet-100 p-4">
+            <div className="max-w-md w-full bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 md:p-10 transform transition-all hover:shadow-indigo-200/50">
+
+                <div className="text-center mb-8">
+                    <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Create Account</h2>
+                    <p className="mt-2 text-slate-500">Join the community today</p>
                 </div>
 
-                {apiError && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-fade-in">
-                        <div className="flex">
-                            <div className="ml-3">
-                                <p className="text-sm text-red-700 font-medium">{apiError}</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {apiError && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-100">{apiError}</div>}
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+                <form className="space-y-5" onSubmit={handleSubmit}>
+                    {['username', 'email', 'password'].map((field) => (
+                        <div key={field}>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{field}</label>
                             <input
-                                name="username"
-                                type="text"
-                                className={`w-full px-4 py-3 rounded-lg border ${errors.username ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none`}
-                                placeholder="johndoe"
-                                value={formData.username}
+                                name={field}
+                                type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
+                                className={`w-full px-5 py-3.5 rounded-xl border font-medium outline-none transition-all ${
+                                    errors[field]
+                                        ? 'bg-red-50 border-red-200 text-red-700 focus:ring-red-200'
+                                        : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500'
+                                }`}
+                                placeholder={field === 'password' ? '••••••••' : field === 'email' ? 'you@example.com' : 'johndoe'}
+                                value={formData[field]}
                                 onChange={handleChange}
                             />
-                            {errors.username && <p className="mt-1 text-xs text-red-500 font-medium">{errors.username}</p>}
+                            {errors[field] && <p className="mt-1 text-xs text-red-500 font-bold ml-1">{errors[field]}</p>}
                         </div>
+                    ))}
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
-                            <input
-                                name="email"
-                                type="email"
-                                className={`w-full px-4 py-3 rounded-lg border ${errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none`}
-                                placeholder="john@example.com"
-                                value={formData.email}
-                                onChange={handleChange}
-                            />
-                            {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
-                            <input
-                                name="password"
-                                type="password"
-                                className={`w-full px-4 py-3 rounded-lg border ${errors.password ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none`}
-                                placeholder="••••••••"
-                                value={formData.password}
-                                onChange={handleChange}
-                            />
-                            {errors.password && <p className="mt-1 text-xs text-red-500 font-medium">{errors.password}</p>}
-                        </div>
-                    </div>
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className={`w-full flex justify-center items-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-xl text-white shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 ${
-                                isLoading
-                                    ? 'bg-indigo-400 cursor-not-allowed shadow-none'
-                                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30'
-                            }`}
-                        >
-                            {isLoading ? <LoadingSpinner variant="button" /> : 'Create Account'}
-                        </button>
-                    </div>
-
-                    <div className="text-center">
-                        <p className="text-sm text-gray-600">
-                            Already have an account?{' '}
-                            <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors">
-                                Sign in here
-                            </Link>
-                        </p>
-                    </div>
+                    <button type="submit" disabled={isLoading} className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 active:scale-95 mt-4 ${
+                        isLoading ? 'bg-slate-400' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700'
+                    }`}>
+                        {isLoading ? <LoadingSpinner variant="button" /> : 'Sign Up'}
+                    </button>
                 </form>
+
+                <div className="mt-8 text-center text-sm text-slate-500">
+                    Already have an account?{' '}
+                    <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-800 underline decoration-2 underline-offset-4 decoration-indigo-200">
+                        Sign in
+                    </Link>
+                </div>
             </div>
         </div>
     );

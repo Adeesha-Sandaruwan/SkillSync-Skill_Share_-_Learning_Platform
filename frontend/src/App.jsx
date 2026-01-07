@@ -4,11 +4,16 @@ import { useAuth } from './context/useAuth';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import HomeFeed from './pages/HomeFeed';
-import Profile from './pages/Profile'; // <--- Import Profile
-import LearningPlans from './pages/LearningPlans'; // <--- Import this
+import Profile from './pages/Profile';
+import LearningPlans from './pages/LearningPlans';
+import Notifications from './pages/Notifications'; // <--- Import Notifications
 
 const PrivateRoute = ({ children }) => {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+
+    // Optional: Add a loading check here to prevent flashing "Login" on refresh
+    if (loading) return <div>Loading...</div>;
+
     return user ? children : <Navigate to="/login" />;
 };
 
@@ -35,7 +40,15 @@ function App() {
                             </PrivateRoute>
                         } />
 
-                        <Route path="/plans" element={
+                        {/* FIX 1: Wrapped in PrivateRoute */}
+                        <Route path="/notifications" element={
+                            <PrivateRoute>
+                                <Notifications />
+                            </PrivateRoute>
+                        } />
+
+                        {/* FIX 2: Changed path to match Navbar link (/learning-plans) */}
+                        <Route path="/learning-plans" element={
                             <PrivateRoute>
                                 <LearningPlans />
                             </PrivateRoute>

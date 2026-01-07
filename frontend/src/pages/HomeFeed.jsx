@@ -11,23 +11,14 @@ const HomeFeed = () => {
     const [isPosting, setIsPosting] = useState(false);
     const [newPost, setNewPost] = useState('');
     const [error, setError] = useState(null);
-
-    // NEW: Tab State ('global' or 'following')
     const [activeTab, setActiveTab] = useState('global');
-
     const { user } = useAuth();
 
     const fetchPosts = useCallback(async () => {
         setLoading(true);
         try {
-            let response;
-            if (activeTab === 'following') {
-                // Fetch only posts from people I follow
-                response = await api.get('/posts/feed');
-            } else {
-                // Fetch everything (Global Discovery)
-                response = await api.get('/posts');
-            }
+            const endpoint = activeTab === 'following' ? '/posts/feed' : '/posts';
+            const response = await api.get(endpoint);
             setPosts(response.data);
             setError(null);
         } catch (error) {
@@ -48,13 +39,8 @@ const HomeFeed = () => {
 
         setIsPosting(true);
         try {
-            await api.post('/posts', {
-                description: newPost,
-                imageUrl: null
-            });
+            await api.post('/posts', { description: newPost, imageUrl: null });
             setNewPost('');
-            // If we are on 'following' tab, switching to 'global' might be better
-            // to see our own new post immediately, but refreshing is fine.
             fetchPosts();
         } catch (error) {
             console.error("Error creating post:", error);
@@ -66,9 +52,9 @@ const HomeFeed = () => {
 
     if (loading && posts.length === 0) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-slate-50">
                 <Navbar />
-                <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="flex items-center justify-center min-h-[80vh]">
                     <LoadingSpinner variant="page" />
                 </div>
             </div>
@@ -76,38 +62,42 @@ const HomeFeed = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <Navbar />
 
-            <main className="container mx-auto px-4 py-8 max-w-2xl">
+            <main className="container mx-auto px-4 py-6 max-w-2xl">
 
-                {/* Create Post Section */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 transition-shadow hover:shadow-md">
+                {/* Create Post Section - Glassy Card */}
+                <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/50 p-6 mb-8 transition-all hover:shadow-2xl hover:bg-white/90">
                     <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-blue-50 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100">
-                            {user?.avatarUrl ? (
-                                <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-blue-600 font-bold text-lg">{user?.username?.charAt(0).toUpperCase()}</span>
-                            )}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[2px] shadow-md flex-shrink-0">
+                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                                {user?.avatarUrl ? (
+                                    <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-tr from-blue-600 to-indigo-600 font-bold text-lg">
+                                        {user?.username?.charAt(0).toUpperCase()}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <form onSubmit={handleCreatePost} className="flex-1">
                             <textarea
-                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none text-gray-700 placeholder-gray-400"
+                                className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white transition-all resize-none text-slate-700 placeholder-slate-400 shadow-inner"
                                 rows="3"
                                 placeholder={`What's on your mind, ${user?.username}?`}
                                 value={newPost}
                                 onChange={(e) => setNewPost(e.target.value)}
                             />
-                            <div className="flex justify-between items-center mt-3">
-                                <div className="text-xs text-gray-400 font-medium">Supports text & links</div>
+                            <div className="flex justify-between items-center mt-4">
+                                <div className="text-xs font-semibold text-slate-400 tracking-wide">SUPPORTS TEXT & LINKS</div>
                                 <button
                                     type="submit"
                                     disabled={isPosting || !newPost.trim()}
-                                    className={`px-6 py-2 rounded-lg font-medium text-sm text-white transition-all shadow-sm flex items-center justify-center min-w-[100px] ${
+                                    className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-lg flex items-center justify-center min-w-[120px] ${
                                         isPosting || !newPost.trim()
-                                            ? 'bg-blue-300 cursor-not-allowed'
-                                            : 'bg-blue-600 hover:bg-blue-700 hover:shadow-md active:transform active:scale-95'
+                                            ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-indigo-500/30 active:scale-95'
                                     }`}
                                 >
                                     {isPosting ? <LoadingSpinner variant="button" /> : 'Share Post'}
@@ -117,52 +107,49 @@ const HomeFeed = () => {
                     </div>
                 </div>
 
-                {/* NEW: Feed Tabs */}
-                <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-xl px-4 shadow-sm">
-                    <button
-                        onClick={() => setActiveTab('global')}
-                        className={`flex-1 py-4 text-sm font-bold text-center transition-all relative ${
-                            activeTab === 'global' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                    >
-                        For You
-                        {activeTab === 'global' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full"></div>}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('following')}
-                        className={`flex-1 py-4 text-sm font-bold text-center transition-all relative ${
-                            activeTab === 'following' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                    >
-                        Following
-                        {activeTab === 'following' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full"></div>}
-                    </button>
+                {/* Feed Tabs - Sticky Glass Header */}
+                <div className="sticky top-[72px] z-10 backdrop-blur-md bg-white/60 rounded-xl border border-white/40 shadow-sm mb-6 flex p-1">
+                    {['global', 'following'].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all duration-300 ${
+                                activeTab === tab
+                                    ? 'bg-white text-indigo-600 shadow-md'
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                            }`}
+                        >
+                            {tab === 'global' ? 'For You' : 'Following'}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Feed Content */}
                 {error && (
-                    <div className="text-center py-8 bg-red-50 rounded-lg text-red-600 mb-6 border border-red-100">
+                    <div className="text-center py-4 bg-red-50/80 backdrop-blur-sm rounded-xl text-red-600 mb-6 border border-red-100 shadow-sm">
                         {error}
                     </div>
                 )}
 
-                {loading ? (
-                    <div className="flex justify-center py-10"><LoadingSpinner /></div>
-                ) : posts.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
-                        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                            {activeTab === 'following' ? '👥' : '✨'}
+                <div className="space-y-6">
+                    {loading ? (
+                        <div className="flex justify-center py-10"><LoadingSpinner /></div>
+                    ) : posts.length === 0 ? (
+                        <div className="text-center py-20 bg-white/40 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
+                            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner">
+                                {activeTab === 'following' ? '👥' : '✨'}
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">No posts yet</h3>
+                            <p className="text-slate-500 max-w-xs mx-auto">
+                                {activeTab === 'following'
+                                    ? "Follow creators to populate your feed!"
+                                    : "Be the first to share something amazing."}
+                            </p>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">No posts yet</h3>
-                        <p className="text-gray-500">
-                            {activeTab === 'following'
-                                ? "Follow some creators to see their posts here!"
-                                : "Be the first to share something with the community."}
-                        </p>
-                    </div>
-                ) : (
-                    posts.map(post => <PostCard key={post.id} post={post} />)
-                )}
+                    ) : (
+                        posts.map(post => <PostCard key={post.id} post={post} />)
+                    )}
+                </div>
             </main>
         </div>
     );

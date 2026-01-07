@@ -1,5 +1,6 @@
 package com.learning.lms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.learning.lms.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -12,14 +13,16 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Who receives the notification
-    @ManyToOne(fetch = FetchType.LAZY)
+    // FIX: Changed to EAGER so the Frontend gets the User data immediately
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "recipient_id", nullable = false)
+    @JsonIgnoreProperties({"notifications", "posts", "followers", "following", "password", "authorities"})
     private User recipient;
 
-    // Who caused the notification (The Liker / Follower)
-    @ManyToOne(fetch = FetchType.LAZY)
+    // FIX: Changed to EAGER
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "actor_id", nullable = false)
+    @JsonIgnoreProperties({"notifications", "posts", "followers", "following", "password", "authorities"})
     private User actor;
 
     @Enumerated(EnumType.STRING)
@@ -27,7 +30,6 @@ public class Notification {
 
     private String message;
 
-    // Links to related content (optional)
     private Long relatedPostId;
 
     private boolean isRead = false;

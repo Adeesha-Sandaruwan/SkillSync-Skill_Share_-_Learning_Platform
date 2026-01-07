@@ -3,33 +3,37 @@ package com.learning.lms.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@Data
+@Table(name = "comments")
 public class Comment {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String content;
+
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
-    // This maps back to the 'comments' list in User.java
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "user_id")
-    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments"})
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "followers", "following", "authorities"})
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id")
-    @JsonIgnoreProperties("comments")
-    @JsonIgnore
+    @JoinColumn(name = "post_id", nullable = false)
+    @JsonIgnore // Prevents infinite loop (Post -> Comment -> Post)
     private SkillPost post;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 }

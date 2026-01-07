@@ -6,7 +6,9 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -22,7 +24,6 @@ public class SkillPost {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Renamed from 'content' to 'description' to match your Service
     @Column(nullable = false, length = 2000)
     private String description;
 
@@ -33,12 +34,16 @@ public class SkillPost {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"password", "posts", "followers", "following", "authorities", "accountNonExpired", "accountNonLocked", "credentialsNonExpired", "enabled"})
+    @JsonIgnoreProperties({"password", "posts", "followers", "following", "authorities", "accountNonExpired", "accountNonLocked", "credentialsNonExpired", "enabled", "plans", "progressUpdates", "comments"})
     private User user;
 
-    // Added to fix "getLikedUserIds" error
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "post_likes", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "user_id")
     private Set<Long> likedUserIds = new HashSet<>();
+
+    // --- FIX: The list that sends comments to frontend ---
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OrderBy("createdAt ASC")
+    private List<Comment> comments = new ArrayList<>();
 }

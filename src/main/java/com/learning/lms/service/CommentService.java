@@ -4,6 +4,7 @@ import com.learning.lms.dto.CommentRequest;
 import com.learning.lms.entity.Comment;
 import com.learning.lms.entity.SkillPost;
 import com.learning.lms.entity.User;
+import com.learning.lms.enums.NotificationType;
 import com.learning.lms.repository.CommentRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
@@ -19,8 +20,8 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final SkillPostRepository postRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService; // INJECTED
 
-    // ADD COMMENT
     public Comment addComment(Long userId, Long postId, CommentRequest request) {
         SkillPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -32,15 +33,24 @@ public class CommentService {
         comment.setPost(post);
         comment.setUser(user);
 
-        return commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
+
+        // TRIGGER NOTIFICATION
+        notificationService.createNotification(
+                post.getUser(),
+                user,
+                NotificationType.COMMENT,
+                "commented on your post: " + (request.getContent().length() > 20 ? request.getContent().substring(0, 20) + "..." : request.getContent()),
+                post.getId()
+        );
+
+        return savedComment;
     }
 
-    // GET COMMENTS
     public List<Comment> getCommentsByPostId(Long postId) {
         return commentRepository.findByPostIdOrderByCreatedAtDesc(postId);
     }
 
-    // EDIT COMMENT (New Feature)
     public Comment editComment(Long commentId, CommentRequest request) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
@@ -49,7 +59,6 @@ public class CommentService {
         return commentRepository.save(comment);
     }
 
-    // DELETE COMMENT
     public void deleteComment(Long commentId) {
         commentRepository.deleteById(commentId);
     }

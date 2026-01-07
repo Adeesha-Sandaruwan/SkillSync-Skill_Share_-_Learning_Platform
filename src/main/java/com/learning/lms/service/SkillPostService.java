@@ -58,4 +58,10 @@ public class SkillPostService {
 
         return postRepository.save(post);
     }
+
+
+    // NEW: Get Following Feed
+    public List<SkillPost> getFollowingPosts(Long userId) {
+        return postRepository.findPostsByFollowedUsers(userId);
+    }
 }

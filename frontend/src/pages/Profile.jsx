@@ -18,6 +18,7 @@ const Profile = () => {
     const [userPlans, setUserPlans] = useState([]);
     const [progressUpdates, setProgressUpdates] = useState([]);
 
+    // Stats State
     const [stats, setStats] = useState({ totalLikes: 0, totalPosts: 0, totalPlans: 0, followers: 0, following: 0 });
     const [activeTab, setActiveTab] = useState('posts');
     const [loading, setLoading] = useState(true);
@@ -55,7 +56,10 @@ const Profile = () => {
             setProgressUpdates(progressRes.data);
             setIsFollowing(followRes.data);
 
+            // CALCULATE TOTAL LIKES
+            // We use the new 'likeCount' field from the Backend SkillPost entity
             const likes = postsRes.data.reduce((acc, post) => acc + (post.likeCount || 0), 0);
+
             setStats({
                 totalLikes: likes,
                 totalPosts: postsRes.data.length,

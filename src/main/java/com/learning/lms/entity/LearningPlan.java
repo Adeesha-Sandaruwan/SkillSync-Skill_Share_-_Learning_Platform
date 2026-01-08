@@ -1,14 +1,14 @@
 package com.learning.lms.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonManagedReference; // Import this
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.ToString; // Import to prevent Lombok infinite loops in toString
+import lombok.ToString;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList; // Import ArrayList
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -27,13 +27,11 @@ public class LearningPlan {
     private String category;
     private String difficulty; // Beginner, Intermediate, Advanced
 
-    // These fields were in your snippet, keeping them if you use them
     private String topic;
     private String resources;
     private LocalDate startDate;
     private LocalDate targetDate;
 
-    // --- THE FIX: Relationship to Steps ---
     // @JsonManagedReference tells Jackson: "Serialize this list"
     // orphanRemoval = true means if you remove a step from this list, delete it from DB
     @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)

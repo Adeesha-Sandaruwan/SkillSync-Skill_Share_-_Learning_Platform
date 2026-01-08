@@ -30,8 +30,20 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // 1. Allow Preflight checks
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 2. Allow Auth endpoints (Login/Register)
                         .requestMatchers("/api/auth/**", "/error").permitAll()
+
+                        // 3. Allow VIEWING Social Content (Public Profiles, Feed, Portfolio)
+                        // This fixes the 403 errors on the frontend load
+                        .requestMatchers(HttpMethod.GET, "/api/users/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolio/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/plans/**").authenticated() // Plans usually private
+
+                        // 4. Lock everything else (Creating posts, adding steps, etc.)
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -44,10 +56,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // This allows any localhost port (5173, 5174, 5177, etc.)
+        // Keep your working CORS settings
         configuration.setAllowedOriginPatterns(List.of("http://localhost:*"));
-
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

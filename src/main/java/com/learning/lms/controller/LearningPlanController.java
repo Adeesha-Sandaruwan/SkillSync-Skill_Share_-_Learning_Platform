@@ -41,7 +41,7 @@ public class LearningPlanController {
         return ResponseEntity.noContent().build();
     }
 
-    // Add this inside the class
+    // PUT /api/plans/steps/{stepId}/toggle
     @PutMapping("/plans/steps/{stepId}/toggle")
     public ResponseEntity<Void> toggleStep(@PathVariable Long stepId) {
         planService.toggleStep(stepId);

@@ -16,9 +16,11 @@ public class PlanStep {
     private String title;
     private String resourceLink;
     private String estimatedTime;
+
+    // Default to false so it's not null in DB
+    @Column(nullable = false)
     private boolean isCompleted = false;
 
-    // --- THE FIX: Pointing back to Parent ---
     // @JsonBackReference tells Jackson: "Stop here, don't serialize the parent again"
     @ManyToOne
     @JoinColumn(name = "learning_plan_id")

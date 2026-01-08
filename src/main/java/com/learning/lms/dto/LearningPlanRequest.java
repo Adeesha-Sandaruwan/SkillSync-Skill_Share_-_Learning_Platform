@@ -17,13 +17,13 @@ public class LearningPlanRequest {
     private String category;
     private String difficulty;
 
-    // Optional fields from your original code
+    // Optional fields
     private String topic;
     private String resources;
     private LocalDate startDate;
     private LocalDate targetDate;
 
-    // --- THE MISSING PIECE ---
+    // This matches the DTO structure you requested
     private List<StepRequest> steps;
 
     @Data

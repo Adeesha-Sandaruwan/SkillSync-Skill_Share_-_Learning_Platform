@@ -2,13 +2,10 @@ package com.learning.lms.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDate;
 
 @Entity @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class Certificate {
+public class Skill {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     private String name;
-    private String issuer;
-    private String date;
     @ManyToOne @JoinColumn(name = "user_id") @JsonIgnore private User user;
 }

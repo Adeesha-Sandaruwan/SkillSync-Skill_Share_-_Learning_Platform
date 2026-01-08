@@ -1,4 +1,4 @@
 package com.learning.lms.repository;
 
-public interface ExperienceRepository {
+public interface SkillRepository {
 }

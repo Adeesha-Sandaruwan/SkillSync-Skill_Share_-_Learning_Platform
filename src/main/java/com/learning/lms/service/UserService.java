@@ -2,9 +2,13 @@ package com.learning.lms.service;
 
 import com.learning.lms.dto.LoginRequest;
 import com.learning.lms.dto.RegisterRequest;
+import com.learning.lms.dto.UserStatsResponse;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.enums.NotificationType;
+import com.learning.lms.repository.LearningPlanRepository; // Import this
+import com.learning.lms.repository.PlanStepRepository;     // Import this
+import com.learning.lms.repository.SkillPostRepository;    // Import this (Changed from PostRepository)
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,7 +21,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final NotificationService notificationService; // INJECTED
+    private final NotificationService notificationService;
+
+    // --- ADDED MISSING INJECTIONS ---
+    private final SkillPostRepository skillPostRepository;
+    private final LearningPlanRepository learningPlanRepository;
+    private final PlanStepRepository planStepRepository;
 
     public User registerUser(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) throw new RuntimeException("Username already taken");
@@ -62,7 +71,6 @@ public class UserService {
         follower.follow(target);
         userRepository.save(follower);
 
-        // TRIGGER NOTIFICATION
         notificationService.createNotification(
                 target,
                 follower,
@@ -86,6 +94,31 @@ public class UserService {
         return follower.getFollowing().contains(target);
     }
 
+    @Transactional(readOnly = true)
+    public UserStatsResponse getUserStats(Long userId) {
+        // 1. Count Posts
+        int postCount = skillPostRepository.countByUserId(userId);
+
+        // 2. Count Total Likes
+        int likeCount = skillPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .mapToInt(p -> p.getLikedUserIds().size())
+                .sum();
+
+        // 3. Count Plans
+        int planCount = learningPlanRepository.findByUserId(userId).size();
+
+        // 4. Count Completed Steps
+        int stepsCompleted = planStepRepository.countCompletedStepsByUserId(userId);
+
+        // 5. Real Follower/Following Counts
+        User user = getUserById(userId);
+        int followers = user.getFollowers().size();
+        int following = user.getFollowing().size();
+
+        return new UserStatsResponse(postCount, likeCount, planCount, stepsCompleted, followers, following);
+    }
+
+    // Helper methods kept for flexibility
     @Transactional(readOnly = true)
     public long getFollowerCount(Long userId) {
         return getUserById(userId).getFollowers().size();

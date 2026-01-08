@@ -12,7 +12,8 @@ public interface SkillPostRepository extends JpaRepository<SkillPost, Long> {
     // Standard finds
     List<SkillPost> findAllByOrderByCreatedAtDesc();
     List<SkillPost> findByUserIdOrderByCreatedAtDesc(Long userId);
-
+    // Just ensure this line is inside SkillPostRepository interface:
+    int countByUserId(Long userId);
     // The MISSING method your Service was looking for
     // This fetches posts from users that I follow, PLUS my own posts
     @Query("SELECT p FROM SkillPost p WHERE p.user.id IN " +

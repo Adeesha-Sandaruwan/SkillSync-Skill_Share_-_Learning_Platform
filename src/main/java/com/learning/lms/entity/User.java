@@ -37,9 +37,13 @@ public class User implements UserDetails {
     @JsonIgnore
     private String password;
 
-    // Profile Fields
+    // --- THE FIX IS HERE ---
+    @Column(columnDefinition = "TEXT")
     private String bio;
+
+    @Column(columnDefinition = "TEXT")
     private String avatarUrl;
+    // -----------------------
 
     // Relationships - marked with @JsonIgnore to prevent 500 Error (Infinite Loop)
     @JsonIgnore

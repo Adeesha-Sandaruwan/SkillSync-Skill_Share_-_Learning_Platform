@@ -5,7 +5,7 @@ import { useAuth } from '../context/useAuth';
 import api from '../services/api';
 
 const PostCard = ({ post }) => {
-    const { user } = useAuth();
+    const { user: currentUser } = useAuth();
     const [showComments, setShowComments] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -21,13 +21,19 @@ const PostCard = ({ post }) => {
     const [isDeleted, setIsDeleted] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    const isOwner = user?.id === post.user?.id;
+    // ROBUST DATA EXTRACTION: Handles both nested 'user' object and flat properties
+    const postUser = post.user || {};
+    const postUserId = postUser.id || post.userId;
+    const postUserName = postUser.username || post.userName || 'Unknown';
+    const postUserAvatar = postUser.avatarUrl || post.userAvatar;
+
+    const isOwner = currentUser?.id === postUserId;
 
     useEffect(() => {
-        setLiked(post.likedUserIds?.includes(user?.id) || false);
+        setLiked(post.likedUserIds?.includes(currentUser?.id) || false);
         setLikeCount(post.likedUserIds?.length || 0);
         setDescription(post.description);
-    }, [post, user?.id]);
+    }, [post, currentUser?.id]);
 
     const triggerLike = async () => {
         if (navigator.vibrate) navigator.vibrate(50);
@@ -36,7 +42,6 @@ const PostCard = ({ post }) => {
         setTimeout(() => setAnimateSmallHeart(false), 300);
 
         const newLikedState = !liked;
-
         setLiked(newLikedState);
         setLikeCount(prev => newLikedState ? prev + 1 : prev - 1);
 
@@ -93,20 +98,20 @@ const PostCard = ({ post }) => {
             <div className="p-5 pb-2">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <Link to={`/profile/${post.user?.id}`} className="relative group">
+                        <Link to={`/profile/${postUserId}`} className="relative group">
                             <div className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-blue-500 to-indigo-600 shadow-md transition-transform group-hover:scale-105">
                                 <div className="w-full h-full rounded-full bg-white overflow-hidden border-2 border-white">
-                                    {post.user?.avatarUrl ? (
-                                        <img src={post.user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                    {postUserAvatar ? (
+                                        <img src={postUserAvatar} alt="" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center font-bold text-indigo-600 bg-slate-50">{post.user?.username?.charAt(0).toUpperCase()}</div>
+                                        <div className="w-full h-full flex items-center justify-center font-bold text-indigo-600 bg-slate-50">{postUserName.charAt(0).toUpperCase()}</div>
                                     )}
                                 </div>
                             </div>
                         </Link>
                         <div>
-                            <Link to={`/profile/${post.user?.id}`} className="font-bold text-slate-800 hover:text-indigo-600 transition-colors block text-[15px]">
-                                {post.user?.username}
+                            <Link to={`/profile/${postUserId}`} className="font-bold text-slate-800 hover:text-indigo-600 transition-colors block text-[15px]">
+                                {postUserName}
                             </Link>
                             <span className="text-xs font-semibold text-slate-400">
                                 {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} • {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

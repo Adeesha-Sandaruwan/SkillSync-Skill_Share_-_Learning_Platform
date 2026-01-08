@@ -4,7 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../context/useAuth';
 
 const CommentSection = ({ postId }) => {
-    const { user } = useAuth();
+    const { user: currentUser } = useAuth();
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState('');
@@ -31,7 +31,7 @@ const CommentSection = ({ postId }) => {
         setSubmitting(true);
         try {
             const response = await api.post(`/posts/${postId}/comments`, { content: newComment });
-            setComments([...comments, response.data]);
+            setComments(prev => [...prev, response.data]);
             setNewComment('');
         } catch (error) {
             console.error("Failed to post comment");
@@ -59,50 +59,61 @@ const CommentSection = ({ postId }) => {
                         <p className="text-slate-400 text-sm">No comments yet. Start the conversation!</p>
                     </div>
                 ) : (
-                    comments.map(comment => (
-                        <div key={comment.id} className="flex gap-3 group">
-                            <Link to={`/profile/${comment.userId}`} className="flex-shrink-0">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 overflow-hidden border border-slate-200 hover:ring-2 hover:ring-indigo-200 transition-all">
-                                    {comment.userAvatar ? (
-                                        <img src={comment.userAvatar} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-indigo-600">
-                                            {comment.userName?.charAt(0).toUpperCase()}
-                                        </div>
-                                    )}
-                                </div>
-                            </Link>
+                    comments.map(comment => {
+                        // FIX: Handle nested User object from Java Entity
+                        const userObj = comment.user || {};
+                        const commentUserId = userObj.id || comment.userId;
+                        const commentUserName = userObj.username || comment.userName || "User";
+                        const commentUserAvatar = userObj.avatarUrl || comment.userAvatar;
+                        const commentDate = comment.createdAt || new Date().toISOString();
 
-                            <div className="flex-1">
-                                <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-slate-200 shadow-sm relative">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <Link
-                                            to={`/profile/${comment.userId}`}
-                                            className="text-xs font-bold text-slate-800 hover:text-indigo-600 transition-colors"
-                                        >
-                                            {comment.userName}
-                                        </Link>
-
-                                        {(user?.id === comment.userId) && (
-                                            <button
-                                                onClick={() => handleDelete(comment.id)}
-                                                className="text-slate-300 hover:text-red-500 transition-colors"
-                                                title="Delete comment"
-                                            >
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                            </button>
+                        return (
+                            <div key={comment.id} className="flex gap-3 group">
+                                {/* Profile Picture Link */}
+                                <Link to={`/profile/${commentUserId}`} className="flex-shrink-0">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-100 overflow-hidden border border-slate-200 hover:ring-2 hover:ring-indigo-200 transition-all">
+                                        {commentUserAvatar ? (
+                                            <img src={commentUserAvatar} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-indigo-600">
+                                                {commentUserName.charAt(0).toUpperCase()}
+                                            </div>
                                         )}
                                     </div>
-                                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-                                </div>
-                                <div className="ml-2 mt-1 flex items-center gap-3">
-                                    <span className="text-[10px] text-slate-400 font-medium">
-                                        {new Date(comment.createdAt).toLocaleDateString()}
-                                    </span>
+                                </Link>
+
+                                <div className="flex-1">
+                                    <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-slate-200 shadow-sm relative">
+                                        <div className="flex justify-between items-start mb-1">
+                                            {/* Username Link */}
+                                            <Link
+                                                to={`/profile/${commentUserId}`}
+                                                className="text-xs font-bold text-slate-800 hover:text-indigo-600 transition-colors"
+                                            >
+                                                {commentUserName}
+                                            </Link>
+
+                                            {(currentUser?.id === commentUserId) && (
+                                                <button
+                                                    onClick={() => handleDelete(comment.id)}
+                                                    className="text-slate-300 hover:text-red-500 transition-colors"
+                                                    title="Delete comment"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                                    </div>
+                                    <div className="ml-2 mt-1 flex items-center gap-3">
+                                        <span className="text-[10px] text-slate-400 font-medium">
+                                            {new Date(commentDate).toLocaleDateString()}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

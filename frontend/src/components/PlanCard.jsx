@@ -4,8 +4,10 @@ import LoadingSpinner from './LoadingSpinner';
 
 const PlanCard = ({ plan, onDelete, isOwner }) => {
     const [isDeleting, setIsDeleting] = useState(false);
-    // 1. New state to toggle the steps view
     const [expanded, setExpanded] = useState(false);
+
+    // Local state to handle instant UI updates for checkboxes
+    const [steps, setSteps] = useState(plan.steps || []);
 
     const handleDelete = async () => {
         if (!window.confirm("Delete plan?")) return;
@@ -18,14 +20,35 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
         }
     };
 
+    const handleToggleStep = async (stepId) => {
+        if (!isOwner) return; // Only owner can check boxes
+
+        // 1. Optimistic Update (Update UI immediately)
+        const updatedSteps = steps.map(step =>
+            step.id === stepId ? { ...step, completed: !step.completed } : step
+        );
+        setSteps(updatedSteps);
+
+        // 2. Send to Backend
+        try {
+            await api.put(`/plans/steps/${stepId}/toggle`);
+        } catch (error) {
+            console.error("Failed to toggle step", error);
+            setSteps(steps); // Revert if failed
+        }
+    };
+
     const formatDate = (date) => {
         if (!date) return 'TBD';
         return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
+    // Calculate progress
+    const completedCount = steps.filter(s => s.completed).length;
+    const progressPercent = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
+
     return (
         <div className="group bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden">
-            {/* Top Gradient Line */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
 
             <div className="flex justify-between items-start mb-4">
@@ -42,65 +65,56 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
             <h3 className="text-lg font-extrabold text-slate-800 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">
                 {plan.title}
             </h3>
-            <p className="text-slate-500 text-sm leading-relaxed mb-6 line-clamp-3 flex-1">{plan.description}</p>
+            <p className="text-slate-500 text-sm leading-relaxed mb-4 line-clamp-2">{plan.description}</p>
 
-            {/* --- 2. NEW SECTION: STEPS DROPDOWN --- */}
-            <div className="mb-6 border-t border-slate-50 pt-4">
+            {/* Progress Bar Visual */}
+            <div className="w-full bg-slate-100 h-2 rounded-full mb-6 overflow-hidden">
+                <div
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                ></div>
+            </div>
+
+            <div className="mt-auto border-t border-slate-50 pt-4">
                 <button
                     onClick={() => setExpanded(!expanded)}
                     className="w-full flex items-center justify-between text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 p-2 rounded-lg transition-colors"
                 >
-                    <span>{expanded ? 'Hide Steps' : `View ${plan.steps ? plan.steps.length : 0} Steps`}</span>
+                    <span>{expanded ? 'Hide Steps' : `View Steps (${completedCount}/${steps.length})`}</span>
                     <svg className={`w-4 h-4 transform transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                 </button>
 
                 {expanded && (
-                    <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                        {(!plan.steps || plan.steps.length === 0) ? (
+                    <div className="mt-3 space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                        {steps.length === 0 ? (
                             <p className="text-center text-xs text-slate-400 py-2 italic">No steps added yet.</p>
                         ) : (
-                            plan.steps.map((step, idx) => (
-                                <div key={step.id || idx} className="flex items-start gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                                    <div className="w-5 h-5 flex items-center justify-center rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-400 shrink-0 mt-0.5">
-                                        {idx + 1}
+                            steps.map((step, idx) => (
+                                <div
+                                    key={step.id || idx}
+                                    onClick={() => handleToggleStep(step.id)}
+                                    className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
+                                        step.completed
+                                            ? 'bg-emerald-50 border-emerald-100 opacity-75'
+                                            : 'bg-white border-slate-100 hover:border-indigo-200'
+                                    }`}
+                                >
+                                    <div className={`w-5 h-5 flex items-center justify-center rounded border transition-colors ${
+                                        step.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'
+                                    }`}>
+                                        {step.completed && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
                                     </div>
+
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-slate-700 truncate">{step.title}</p>
-                                        <div className="flex gap-2 text-[10px] text-slate-400 mt-0.5">
-                                            {step.estimatedTime && <span>⏱ {step.estimatedTime}</span>}
-                                            {step.resourceLink && (
-                                                <a href={step.resourceLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-0.5">
-                                                    <span>🔗 Link</span>
-                                                </a>
-                                            )}
-                                        </div>
+                                        <p className={`text-sm font-semibold truncate transition-all ${step.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                                            {step.title}
+                                        </p>
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
                 )}
-            </div>
-            {/* ---------------------------------------- */}
-
-            {plan.resources && (
-                <div className="mb-4">
-                    <a href={plan.resources.startsWith('http') ? plan.resources : `https://${plan.resources}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                        View External Resources
-                    </a>
-                </div>
-            )}
-
-            {/* Timeline Visual */}
-            <div className="mt-auto pt-4 border-t border-slate-50">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    <span>{formatDate(plan.startDate)}</span>
-                    <span>{formatDate(plan.targetDate)}</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 w-1/2 rounded-full opacity-80"></div>
-                </div>
             </div>
         </div>
     );

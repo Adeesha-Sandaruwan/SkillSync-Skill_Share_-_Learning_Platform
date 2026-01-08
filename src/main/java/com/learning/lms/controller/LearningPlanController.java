@@ -40,4 +40,11 @@ public class LearningPlanController {
         planService.deletePlan(planId);
         return ResponseEntity.noContent().build();
     }
+
+    // Add this inside the class
+    @PutMapping("/plans/steps/{stepId}/toggle")
+    public ResponseEntity<Void> toggleStep(@PathVariable Long stepId) {
+        planService.toggleStep(stepId);
+        return ResponseEntity.ok().build();
+    }
 }

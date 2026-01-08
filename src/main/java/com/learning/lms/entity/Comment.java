@@ -27,13 +27,13 @@ public class Comment {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "followers", "following", "authorities"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "posts", "plans", "progressUpdates", "comments", "followers", "following", "authorities"})
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", nullable = false)
-    @JsonIgnore // Prevents infinite loop (Post -> Comment -> Post)
+    @JsonIgnore
     private SkillPost post;
 }

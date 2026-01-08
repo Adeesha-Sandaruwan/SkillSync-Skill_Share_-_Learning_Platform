@@ -1,13 +1,9 @@
 package com.learning.lms.controller;
 
 import com.learning.lms.entity.SkillPost;
-import com.learning.lms.entity.User;
-import com.learning.lms.repository.UserRepository;
 import com.learning.lms.service.SkillPostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,68 +13,52 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SkillPostController {
 
-    private final SkillPostService skillPostService;
-    private final UserRepository userRepository;
+    private final SkillPostService postService;
 
     @GetMapping
-    public ResponseEntity<List<SkillPost>> getAllPosts() {
-        return ResponseEntity.ok(skillPostService.getAllPosts());
+    public ResponseEntity<List<SkillPost>> getAllPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getAllPosts(page, size));
     }
 
     @GetMapping("/feed")
-    public ResponseEntity<List<SkillPost>> getFeed(@AuthenticationPrincipal UserDetails userDetails) {
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(skillPostService.getFollowingPosts(user.getId()));
+    public ResponseEntity<List<SkillPost>> getFollowingFeed(
+            @RequestParam Long userId, // Usually taken from SecurityContext, but keeping your style
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getFollowingPosts(userId, page, size));
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<SkillPost>> getUserPosts(@PathVariable Long userId) {
-        return ResponseEntity.ok(skillPostService.getUserPosts(userId));
+    public ResponseEntity<List<SkillPost>> getUserPosts(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getUserPosts(userId, page, size));
     }
 
     @PostMapping
-    public ResponseEntity<SkillPost> createPost(
-            @RequestBody SkillPost postRequest,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        return ResponseEntity.ok(
-                skillPostService.createPost(user.getId(), postRequest.getDescription(), postRequest.getImageUrl())
-        );
+    public ResponseEntity<SkillPost> createPost(@RequestParam Long userId, @RequestBody SkillPost post) {
+        return ResponseEntity.ok(postService.createPost(userId, post));
     }
 
     @PutMapping("/{postId}")
-    public ResponseEntity<SkillPost> updatePost(
-            @PathVariable Long postId,
-            @RequestBody SkillPost postRequest
-    ) {
-        return ResponseEntity.ok(skillPostService.updatePost(postId, postRequest.getDescription()));
+    public ResponseEntity<SkillPost> updatePost(@PathVariable Long postId, @RequestBody String description) {
+        return ResponseEntity.ok(postService.updatePost(postId, description));
     }
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> deletePost(@PathVariable Long postId) {
-        skillPostService.deletePost(postId);
+        postService.deletePost(postId);
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{postId}/like")
-    public ResponseEntity<SkillPost> toggleLike(
-            @PathVariable Long postId,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(skillPostService.toggleLike(postId, user.getId()));
-    }
-
     @PostMapping("/{postId}/like")
-    public ResponseEntity<SkillPost> toggleLikePost(
-            @PathVariable Long postId,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        return toggleLike(postId, userDetails);
+    public ResponseEntity<SkillPost> toggleLike(@PathVariable Long postId, @RequestParam Long userId) {
+        return ResponseEntity.ok(postService.toggleLike(postId, userId));
     }
 }

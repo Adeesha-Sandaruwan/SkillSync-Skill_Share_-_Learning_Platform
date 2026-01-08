@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -8,9 +9,13 @@ const Notifications = () => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     useEffect(() => {
-        if (user?.id) fetchNotifications();
+        if (user?.id) {
+            fetchNotifications();
+            markAllAsReadBackground();
+        }
     }, [user]);
 
     const fetchNotifications = async () => {
@@ -21,6 +26,14 @@ const Notifications = () => {
             console.error("Error fetching notifications", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const markAllAsReadBackground = async () => {
+        try {
+            await api.put(`/notifications/${user.id}/read-all`);
+        } catch (error) {
+            console.error("Error marking all read automatically", error);
         }
     };
 
@@ -36,6 +49,11 @@ const Notifications = () => {
             await api.put(`/notifications/${notificationId}/read`);
             setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
         } catch (error) { console.error("Error marking read", error); }
+    };
+
+    const handleVisitProfile = (e, actorId) => {
+        e.stopPropagation();
+        navigate(`/profile/${actorId}`);
     };
 
     if (loading) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="flex justify-center pt-20"><LoadingSpinner /></div></div>;
@@ -69,7 +87,10 @@ const Notifications = () => {
                                          : 'bg-white/60 border-transparent hover:bg-white hover:shadow-md'
                                  }`}>
 
-                                <div className="relative flex-shrink-0">
+                                <div
+                                    className="relative flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                                    onClick={(e) => handleVisitProfile(e, notification.actor.id)}
+                                >
                                     <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 p-[2px]">
                                         <div className="w-full h-full rounded-full bg-white overflow-hidden flex items-center justify-center">
                                             {notification.actor.avatarUrl ? (
@@ -84,7 +105,12 @@ const Notifications = () => {
 
                                 <div className="flex-1 pt-1">
                                     <p className="text-slate-800 text-[15px] leading-relaxed">
-                                        <span className="font-bold text-indigo-900">{notification.actor.username}</span>
+                                        <span
+                                            className="font-bold text-indigo-900 hover:text-indigo-600 hover:underline cursor-pointer transition-colors"
+                                            onClick={(e) => handleVisitProfile(e, notification.actor.id)}
+                                        >
+                                            {notification.actor.username}
+                                        </span>
                                         {' '}{notification.message}
                                     </p>
                                     <span className="text-xs font-semibold text-slate-400 mt-2 block">

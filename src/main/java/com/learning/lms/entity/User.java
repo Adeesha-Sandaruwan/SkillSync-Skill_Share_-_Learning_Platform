@@ -37,19 +37,17 @@ public class User implements UserDetails {
     @JsonIgnore
     private String password;
 
-    // --- THE FIX IS HERE ---
     @Column(columnDefinition = "TEXT")
     private String bio;
 
     @Column(columnDefinition = "TEXT")
     private String avatarUrl;
-    // -----------------------
 
-    // Relationships - marked with @JsonIgnore to prevent 500 Error (Infinite Loop)
+    // Relationships - Changed to LAZY for performance
     @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_following",
             joinColumns = @JoinColumn(name = "follower_id"),
@@ -60,7 +58,7 @@ public class User implements UserDetails {
     @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @ManyToMany(mappedBy = "following", fetch = FetchType.EAGER)
+    @ManyToMany(mappedBy = "following", fetch = FetchType.LAZY)
     private Set<User> followers = new HashSet<>();
 
     // --- Helper Methods ---

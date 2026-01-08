@@ -10,7 +10,6 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
     const [steps, setSteps] = useState(plan.steps || []);
     const navigate = useNavigate();
 
-    // 1. DELETE LOGIC
     const handleDelete = async () => {
         if (!window.confirm("Delete this roadmap?")) return;
         setIsDeleting(true);
@@ -22,11 +21,9 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
         }
     };
 
-    // 2. TOGGLE STEP LOGIC (Updates Profile Stats)
     const handleToggleStep = async (stepId) => {
         if (!isOwner) return;
 
-        // Optimistic UI Update
         const updatedSteps = steps.map(step =>
             step.id === stepId ? { ...step, completed: !step.completed } : step
         );
@@ -36,11 +33,10 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
             await api.put(`/plans/steps/${stepId}/toggle`);
         } catch (error) {
             console.error("Failed to toggle step", error);
-            setSteps(steps); // Revert on failure
+            setSteps(steps);
         }
     };
 
-    // 3. SHARE TO FEED LOGIC
     const handleShareToFeed = async () => {
         if (!window.confirm("Share your progress to the Home Feed?")) return;
         setSharing(true);
@@ -50,9 +46,9 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
 
             const message = `🚀 Update: I've completed ${percent}% of my "${plan.title}" roadmap! (${completedCount}/${steps.length} steps done). #LearningJourney`;
 
-            await api.post(`/posts/${plan.user.id}`, {
+            await api.post(`/posts`, {
                 description: message,
-                mediaUrls: [] // No images for status updates
+                imageUrl: null
             });
 
             alert("Posted to feed!");
@@ -66,7 +62,6 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
 
     const formatDate = (date) => date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD';
 
-    // Progress Calculation
     const completedCount = steps.filter(s => s.completed).length;
     const progressPercent = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
 
@@ -93,7 +88,6 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
             </h3>
             <p className="text-slate-500 text-sm mb-4 line-clamp-2 flex-1">{plan.description}</p>
 
-            {/* PROGRESS BAR */}
             <div className="w-full bg-slate-100 h-2 rounded-full mb-3 overflow-hidden">
                 <div
                     className="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
@@ -114,7 +108,6 @@ const PlanCard = ({ plan, onDelete, isOwner }) => {
                 )}
             </div>
 
-            {/* EXPANDABLE STEPS */}
             <div className="border-t border-slate-50 pt-3">
                 <button
                     onClick={() => setExpanded(!expanded)}

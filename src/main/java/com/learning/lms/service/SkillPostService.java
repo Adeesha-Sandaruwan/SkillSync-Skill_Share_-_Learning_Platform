@@ -6,6 +6,10 @@ import com.learning.lms.enums.NotificationType;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,16 +23,25 @@ public class SkillPostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    public List<SkillPost> getAllPosts() {
-        return postRepository.findAllByOrderByCreatedAtDesc();
+    // Updated for Pagination
+    public List<SkillPost> getAllPosts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Slice<SkillPost> slice = postRepository.findAllPosts(pageable);
+        return slice.getContent();
     }
 
-    public List<SkillPost> getFollowingPosts(Long userId) {
-        return postRepository.findPostsByFollowedUsers(userId);
+    // Updated for Pagination
+    public List<SkillPost> getFollowingPosts(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Slice<SkillPost> slice = postRepository.findPostsByFollowedUsers(userId, pageable);
+        return slice.getContent();
     }
 
-    public List<SkillPost> getUserPosts(Long userId) {
-        return postRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    // Updated for Pagination
+    public List<SkillPost> getUserPosts(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Slice<SkillPost> slice = postRepository.findByUserId(userId, pageable);
+        return slice.getContent();
     }
 
     @Transactional
@@ -45,7 +58,6 @@ public class SkillPostService {
         return postRepository.save(post);
     }
 
-    // Overloaded method to handle object input if needed by Controller
     @Transactional
     public SkillPost createPost(Long userId, SkillPost postData) {
         return createPost(userId, postData.getDescription(), postData.getImageUrl());
@@ -80,14 +92,15 @@ public class SkillPostService {
         } else {
             post.getLikedUserIds().add(userId);
 
-            // THIS NOW WORKS because you have the Notification files
-            notificationService.createNotification(
-                    post.getUser(),
-                    liker,
-                    NotificationType.LIKE,
-                    "liked your skill post.",
-                    post.getId()
-            );
+            if (!post.getUser().getId().equals(userId)) {
+                notificationService.createNotification(
+                        post.getUser(),
+                        liker,
+                        NotificationType.LIKE,
+                        "liked your skill post.",
+                        post.getId()
+                );
+            }
         }
 
         return postRepository.save(post);

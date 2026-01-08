@@ -9,13 +9,11 @@ const api = axios.create({
     },
 });
 
-// Add a "Interceptor" to attach the Token to every request if user is logged in
 api.interceptors.request.use((config) => {
     const user = JSON.parse(localStorage.getItem('user'));
 
-    // FIX 1: Check for 'token', not 'auth' (unless you specifically renamed it)
+    // Safety check for token
     if (user && user.token) {
-        // FIX 2: You MUST add "Bearer " before the token, or Java will reject it.
         config.headers.Authorization = `Bearer ${user.token}`;
     }
 

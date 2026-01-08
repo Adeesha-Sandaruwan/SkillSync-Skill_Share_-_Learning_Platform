@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
@@ -12,14 +12,45 @@ const HomeFeed = () => {
     const [newPost, setNewPost] = useState('');
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('global');
+
+    // Pagination State
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const observer = useRef();
+
     const { user } = useAuth();
 
-    const fetchPosts = useCallback(async () => {
+    // Reset pagination when tab changes
+    useEffect(() => {
+        setPosts([]);
+        setPage(0);
+        setHasMore(true);
         setLoading(true);
+    }, [activeTab]);
+
+    const fetchPosts = useCallback(async () => {
+        if (!hasMore && page > 0) return;
+
         try {
-            const endpoint = activeTab === 'following' ? '/posts/feed' : '/posts';
+            setLoading(true);
+            const endpoint = activeTab === 'following'
+                ? `/posts/feed?userId=${user?.id}&page=${page}&size=10`
+                : `/posts?page=${page}&size=10`;
+
             const response = await api.get(endpoint);
-            setPosts(response.data);
+            const newPosts = response.data;
+
+            setPosts(prev => {
+                // If page 0, replace. If page > 0, append.
+                if (page === 0) return newPosts;
+                // Simple deduping based on ID just in case
+                const existingIds = new Set(prev.map(p => p.id));
+                const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
+                return [...prev, ...uniqueNewPosts];
+            });
+
+            // If we got fewer items than requested (10), we've reached the end
+            setHasMore(newPosts.length === 10);
             setError(null);
         } catch (error) {
             console.error("Error fetching posts:", error);
@@ -27,11 +58,25 @@ const HomeFeed = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeTab]);
+    }, [activeTab, page, user?.id]); // Removed 'hasMore' from dependency to prevent loop
 
     useEffect(() => {
         fetchPosts();
     }, [fetchPosts]);
+
+    // Infinite Scroll Ref Logic
+    const lastPostRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setPage(prevPage => prevPage + 1);
+            }
+        });
+
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore]);
 
     const handleCreatePost = async (e) => {
         e.preventDefault();
@@ -39,9 +84,10 @@ const HomeFeed = () => {
 
         setIsPosting(true);
         try {
-            await api.post('/posts', { description: newPost, imageUrl: null });
+            const res = await api.post(`/posts?userId=${user.id}`, { description: newPost, imageUrl: null });
+            // Prepend new post immediately
+            setPosts(prev => [res.data, ...prev]);
             setNewPost('');
-            fetchPosts();
         } catch (error) {
             console.error("Error creating post:", error);
             alert("Failed to post. Please try again.");
@@ -50,24 +96,13 @@ const HomeFeed = () => {
         }
     };
 
-    if (loading && posts.length === 0) {
-        return (
-            <div className="min-h-screen bg-slate-50">
-                <Navbar />
-                <div className="flex items-center justify-center min-h-[80vh]">
-                    <LoadingSpinner variant="page" />
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <Navbar />
 
             <main className="container mx-auto px-4 py-6 max-w-2xl">
 
-                {/* Create Post Section - Glassy Card */}
+                {/* Create Post Section */}
                 <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/50 p-6 mb-8 transition-all hover:shadow-2xl hover:bg-white/90">
                     <div className="flex gap-4">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[2px] shadow-md flex-shrink-0">
@@ -90,7 +125,6 @@ const HomeFeed = () => {
                                 onChange={(e) => setNewPost(e.target.value)}
                             />
                             <div className="flex justify-between items-center mt-4">
-                                <div className="text-xs font-semibold text-slate-400 tracking-wide">SUPPORTS TEXT & LINKS</div>
                                 <button
                                     type="submit"
                                     disabled={isPosting || !newPost.trim()}
@@ -107,7 +141,7 @@ const HomeFeed = () => {
                     </div>
                 </div>
 
-                {/* Feed Tabs - Sticky Glass Header */}
+                {/* Feed Tabs */}
                 <div className="sticky top-[72px] z-10 backdrop-blur-md bg-white/60 rounded-xl border border-white/40 shadow-sm mb-6 flex p-1">
                     {['global', 'following'].map((tab) => (
                         <button
@@ -131,23 +165,30 @@ const HomeFeed = () => {
                     </div>
                 )}
 
-                <div className="space-y-6">
-                    {loading ? (
-                        <div className="flex justify-center py-10"><LoadingSpinner /></div>
-                    ) : posts.length === 0 ? (
-                        <div className="text-center py-20 bg-white/40 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
-                            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner">
-                                {activeTab === 'following' ? '👥' : '✨'}
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">No posts yet</h3>
-                            <p className="text-slate-500 max-w-xs mx-auto">
-                                {activeTab === 'following'
-                                    ? "Follow creators to populate your feed!"
-                                    : "Be the first to share something amazing."}
-                            </p>
+                <div className="space-y-6 pb-10">
+                    {posts.map((post, index) => {
+                        // Attach the ref to the last element
+                        if (posts.length === index + 1) {
+                            return <div ref={lastPostRef} key={post.id}><PostCard post={post} /></div>;
+                        } else {
+                            return <PostCard key={post.id} post={post} />;
+                        }
+                    })}
+
+                    {loading && (
+                        <div className="flex justify-center py-6">
+                            <LoadingSpinner />
                         </div>
-                    ) : (
-                        posts.map(post => <PostCard key={post.id} post={post} />)
+                    )}
+
+                    {!loading && posts.length === 0 && (
+                        <div className="text-center py-20 bg-white/40 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">No posts yet</h3>
+                        </div>
+                    )}
+
+                    {!hasMore && posts.length > 0 && (
+                        <div className="text-center text-slate-400 text-sm py-4">You're all caught up! 🎉</div>
                     )}
                 </div>
             </main>

@@ -32,18 +32,20 @@ public class SkillPost {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    // CHANGED TO LAZY
+    // JsonIgnoreProperties helps avoid serialization errors with Lazy objects
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"password", "posts", "followers", "following", "authorities", "accountNonExpired", "accountNonLocked", "credentialsNonExpired", "enabled", "plans", "progressUpdates", "comments"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "posts", "followers", "following", "authorities", "accountNonExpired", "accountNonLocked", "credentialsNonExpired", "enabled", "plans", "progressUpdates", "comments"})
     private User user;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.EAGER) // IDs are small, safe to keep Eager
     @CollectionTable(name = "post_likes", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "user_id")
     private Set<Long> likedUserIds = new HashSet<>();
 
-    // --- FIX: The list that sends comments to frontend ---
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    // CHANGED TO LAZY
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("createdAt ASC")
     private List<Comment> comments = new ArrayList<>();
 }

@@ -21,7 +21,9 @@ const PostCard = ({ post }) => {
     const [isDeleted, setIsDeleted] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // ROBUST DATA EXTRACTION: Handles both nested 'user' object and flat properties
+    // Local state for comment count to update immediately when adding comments
+    const [commentCount, setCommentCount] = useState(post.comments ? post.comments.length : 0);
+
     const postUser = post.user || {};
     const postUserId = postUser.id || post.userId;
     const postUserName = postUser.username || post.userName || 'Unknown';
@@ -33,6 +35,7 @@ const PostCard = ({ post }) => {
         setLiked(post.likedUserIds?.includes(currentUser?.id) || false);
         setLikeCount(post.likedUserIds?.length || 0);
         setDescription(post.description);
+        setCommentCount(post.comments ? post.comments.length : 0);
     }, [post, currentUser?.id]);
 
     const triggerLike = async () => {
@@ -46,7 +49,7 @@ const PostCard = ({ post }) => {
         setLikeCount(prev => newLikedState ? prev + 1 : prev - 1);
 
         try {
-            await api.put(`/posts/${post.id}/like`);
+            await api.post(`/posts/${post.id}/like?userId=${currentUser.id}`);
         } catch (error) {
             setLiked(!newLikedState);
             setLikeCount(prev => newLikedState ? prev - 1 : prev + 1);
@@ -192,12 +195,19 @@ const PostCard = ({ post }) => {
                         </svg>
                     </div>
                     <span className={`text-sm font-bold transition-colors ${showComments ? 'text-indigo-600' : 'text-slate-500 group-hover:text-indigo-600'}`}>
-                        {post.comments ? post.comments.length : 0}
+                        {commentCount}
                     </span>
                 </button>
             </div>
 
-            {showComments && <CommentSection postId={post.id} />}
+            {showComments && (
+                <CommentSection
+                    postId={post.id}
+                    postOwnerId={postUserId}
+                    onCommentAdded={() => setCommentCount(prev => prev + 1)}
+                    onCommentDeleted={() => setCommentCount(prev => prev - 1)}
+                />
+            )}
         </div>
     );
 };

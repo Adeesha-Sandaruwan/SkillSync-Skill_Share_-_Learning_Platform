@@ -17,7 +17,6 @@ public class CommentController {
 
     private final CommentService commentService;
 
-    // POST (Add Comment)
     @PostMapping("/posts/{postId}/users/{userId}/comments")
     public ResponseEntity<Comment> addComment(
             @PathVariable Long userId,
@@ -31,7 +30,6 @@ public class CommentController {
         return ResponseEntity.ok(commentService.addComment(userId, postId, request));
     }
 
-    // POST (Add Comment) - preferred (uses JWT principal)
     @PostMapping("/posts/{postId}/comments")
     public ResponseEntity<Comment> addCommentToPost(
             @PathVariable Long postId,
@@ -41,13 +39,11 @@ public class CommentController {
         return ResponseEntity.ok(commentService.addCommentByUsername(userDetails.getUsername(), postId, request));
     }
 
-    // GET (List Comments)
     @GetMapping("/posts/{postId}/comments")
     public ResponseEntity<List<Comment>> getComments(@PathVariable Long postId) {
         return ResponseEntity.ok(commentService.getCommentsByPostId(postId));
     }
 
-    // PUT (Edit Comment)
     @PutMapping("/comments/{commentId}")
     public ResponseEntity<Comment> editComment(
             @PathVariable Long commentId,
@@ -55,10 +51,12 @@ public class CommentController {
         return ResponseEntity.ok(commentService.editComment(commentId, request));
     }
 
-    // DELETE (Remove Comment)
     @DeleteMapping("/comments/{commentId}")
-    public ResponseEntity<Void> deleteComment(@PathVariable Long commentId) {
-        commentService.deleteComment(commentId);
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        commentService.deleteComment(commentId, userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 }

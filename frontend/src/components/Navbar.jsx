@@ -2,7 +2,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-import LoadingSpinner from './LoadingSpinner';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -27,7 +26,7 @@ const Navbar = () => {
 
     // Close search & mobile menu when clicking outside or changing route
     useEffect(() => {
-        setIsMobileMenuOpen(false); // Close mobile menu on route change
+        setIsMobileMenuOpen(false);
         const handleClickOutside = (event) => {
             if (searchRef.current && !searchRef.current.contains(event.target)) {
                 setShowResults(false);
@@ -82,7 +81,6 @@ const Navbar = () => {
                 }`}>
                     {children}
                 </span>
-                {/* Underline only on Desktop */}
                 <span className={`hidden md:block absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transform transition-transform duration-300 origin-left ${
                     isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
                 }`}></span>
@@ -105,7 +103,7 @@ const Navbar = () => {
                         </span>
                     </Link>
 
-                    {/* SEARCH BAR (Visible on Mobile & Desktop) */}
+                    {/* SEARCH BAR */}
                     <div className="flex-1 flex justify-center max-w-[200px] sm:max-w-lg mx-2" ref={searchRef}>
                         <div className={`relative group w-full transition-all duration-500`}>
                             <input
@@ -147,7 +145,8 @@ const Navbar = () => {
                     {/* DESKTOP MENU */}
                     <div className="hidden md:flex items-center space-x-6 flex-shrink-0">
                         <NavLink to="/">Feed</NavLink>
-                        <NavLink to="/learning-plans">Roadmap</NavLink>
+                        {/* FIX IS HERE: Changed from /learning-plans to /plans/create */}
+                        <NavLink to="/plans/create">Roadmaps</NavLink>
 
                         <div className="relative">
                             <NavLink to="/notifications">Notifications</NavLink>
@@ -210,7 +209,8 @@ const Navbar = () => {
 
                         <div className="space-y-1">
                             <Link to="/" className="block px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">Feed</Link>
-                            <Link to="/learning-plans" className="block px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">Roadmap</Link>
+                            {/* FIX IS HERE: Changed from /learning-plans to /plans/create */}
+                            <Link to="/plans/create" className="block px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">Roadmap</Link>
                             <Link to="/notifications" className="flex justify-between items-center px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">
                                 <span>Notifications</span>
                                 {unreadCount > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{unreadCount}</span>}

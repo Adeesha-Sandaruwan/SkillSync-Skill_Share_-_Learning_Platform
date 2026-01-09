@@ -26,7 +26,7 @@ public class LearningPlanController {
         return ResponseEntity.ok(planService.getUserPlans(userId));
     }
 
-    // --- ADDED THIS to fix the "View Plan" page error ---
+    // --- FIXED: Added missing endpoint for viewing single plan details ---
     @GetMapping("/plans/{planId}")
     public ResponseEntity<LearningPlan> getPlanById(@PathVariable Long planId) {
         return ResponseEntity.ok(planService.getPlanById(planId));

@@ -1,15 +1,16 @@
 package com.learning.lms.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.learning.lms.enums.ReactionType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -24,27 +25,34 @@ public class SkillPost {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 2000)
+    @Column(length = 2000)
     private String description;
 
-    private String imageUrl;
+    private String imageUrl; // Ensures single image is stored
 
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    // CHANGED TO LAZY
-    // JsonIgnoreProperties helps avoid serialization errors with Lazy objects
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "posts", "followers", "following", "authorities", "accountNonExpired", "accountNonLocked", "credentialsNonExpired", "enabled", "plans", "progressUpdates", "comments"})
+    @JsonIgnoreProperties({"password", "posts", "followers", "following", "plans", "progressUpdates", "comments", "hibernateLazyInitializer", "handler"})
     private User user;
 
-    @ElementCollection(fetch = FetchType.EAGER) // IDs are small, safe to keep Eager
-    @CollectionTable(name = "post_likes", joinColumns = @JoinColumn(name = "post_id"))
-    @Column(name = "user_id")
-    private Set<Long> likedUserIds = new HashSet<>();
+    // --- REACTION SYSTEM ---
+    // Stores which user reacted with what type (e.g., User 1 -> LOVE)
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "post_reactions", joinColumns = @JoinColumn(name = "post_id"))
+    @MapKeyColumn(name = "user_id")
+    @Column(name = "reaction_type")
+    @Enumerated(EnumType.STRING)
+    private Map<Long, ReactionType> reactions = new HashMap<>();
 
-    // CHANGED TO LAZY
+    // --- REPOST SYSTEM ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "original_post_id")
+    @JsonIgnoreProperties({"comments", "reactions", "originalPost", "hibernateLazyInitializer", "handler"})
+    private SkillPost originalPost;
+
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("createdAt ASC")
     private List<Comment> comments = new ArrayList<>();

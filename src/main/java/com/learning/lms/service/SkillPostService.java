@@ -3,6 +3,7 @@ package com.learning.lms.service;
 import com.learning.lms.entity.SkillPost;
 import com.learning.lms.entity.User;
 import com.learning.lms.enums.NotificationType;
+import com.learning.lms.enums.ReactionType;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,111 +31,96 @@ public class SkillPostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    // --- PAGINATION METHODS ---
+    // --- PAGINATION ---
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Slice<SkillPost> slice = postRepository.findAllPosts(pageable);
-        return slice.getContent();
+        return postRepository.findAllPosts(pageable).getContent();
     }
 
     public List<SkillPost> getFollowingPosts(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Slice<SkillPost> slice = postRepository.findPostsByFollowedUsers(userId, pageable);
-        return slice.getContent();
+        return postRepository.findPostsByFollowedUsers(userId, pageable).getContent();
     }
 
     public List<SkillPost> getUserPosts(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Slice<SkillPost> slice = postRepository.findByUserId(userId, pageable);
-        return slice.getContent();
+        return postRepository.findByUserId(userId, pageable).getContent();
     }
 
-    // --- CREATE POST WITH IMAGE UPLOAD ---
+    // --- CREATE POST / REPOST ---
     @Transactional
-    public SkillPost createPost(Long userId, String description, MultipartFile imageFile) {
+    public SkillPost createPost(Long userId, String description, MultipartFile imageFile, Long originalPostId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        String imageUrl = null;
+        SkillPost post = new SkillPost();
+        post.setDescription(description);
+        post.setUser(user);
 
-        // File Upload Logic
-        if (imageFile != null && !imageFile.isEmpty()) {
-            try {
-                // 1. Create uploads directory if it doesn't exist
-                String uploadDir = System.getProperty("user.dir") + "/uploads";
-                Path uploadPath = Paths.get(uploadDir);
-                if (!Files.exists(uploadPath)) {
-                    Files.createDirectories(uploadPath);
-                }
-
-                // 2. Generate unique filename (UUID)
-                String originalFilename = imageFile.getOriginalFilename();
-                String extension = "";
-                if (originalFilename != null && originalFilename.contains(".")) {
-                    extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-                }
-                String newFilename = UUID.randomUUID().toString() + extension;
-
-                // 3. Save file
-                Path filePath = uploadPath.resolve(newFilename);
-                Files.copy(imageFile.getInputStream(), filePath);
-
-                // 4. Generate URL (This matches the WebConfig mapping)
-                imageUrl = "http://localhost:8080/uploads/" + newFilename;
-
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to upload image: " + e.getMessage());
-            }
+        // 1. Handle Repost
+        if (originalPostId != null) {
+            SkillPost original = postRepository.findById(originalPostId)
+                    .orElseThrow(() -> new RuntimeException("Original post not found"));
+            // If reposting a repost, reference the ORIGINAL original
+            post.setOriginalPost(original.getOriginalPost() != null ? original.getOriginalPost() : original);
         }
 
-        SkillPost post = SkillPost.builder()
-                .description(description)
-                .imageUrl(imageUrl)
-                .user(user)
-                .build();
+        // 2. Handle Image Upload
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                String uploadDir = "uploads"; // Relative to project root
+                Path uploadPath = Paths.get(uploadDir);
+                if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
+
+                String filename = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
+                Files.copy(imageFile.getInputStream(), uploadPath.resolve(filename));
+
+                // Generate Dynamic URL based on current server port/host
+                String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/uploads/")
+                        .path(filename)
+                        .toUriString();
+
+                post.setImageUrl(fileUrl);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload image");
+            }
+        }
 
         return postRepository.save(post);
     }
 
+    // --- REACTION LOGIC ---
     @Transactional
-    public SkillPost updatePost(Long postId, String newDescription) {
+    public SkillPost reactToPost(Long postId, Long userId, ReactionType type) {
         SkillPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
-        post.setDescription(newDescription);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Toggle logic: If clicking same reaction, remove it. If different, update it.
+        if (post.getReactions().containsKey(userId) && post.getReactions().get(userId) == type) {
+            post.getReactions().remove(userId);
+        } else {
+            post.getReactions().put(userId, type);
+
+            // Notify only on new reaction, not updates
+            if (!post.getUser().getId().equals(userId)) {
+                notificationService.createNotification(post.getUser(), user, NotificationType.LIKE, "reacted " + type + " to your post", post.getId());
+            }
+        }
         return postRepository.save(post);
     }
 
     @Transactional
     public void deletePost(Long postId) {
-        if (!postRepository.existsById(postId)) {
-            throw new RuntimeException("Post not found");
-        }
         postRepository.deleteById(postId);
     }
 
     @Transactional
-    public SkillPost toggleLike(Long postId, Long userId) {
-        SkillPost post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
-
-        User liker = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (post.getLikedUserIds().contains(userId)) {
-            post.getLikedUserIds().remove(userId);
-        } else {
-            post.getLikedUserIds().add(userId);
-
-            if (!post.getUser().getId().equals(userId)) {
-                notificationService.createNotification(
-                        post.getUser(),
-                        liker,
-                        NotificationType.LIKE,
-                        "liked your skill post.",
-                        post.getId()
-                );
-            }
-        }
+    public SkillPost updatePost(Long postId, String desc) {
+        SkillPost post = postRepository.findById(postId).orElseThrow();
+        post.setDescription(desc);
         return postRepository.save(post);
     }
 }

@@ -1,6 +1,7 @@
 package com.learning.lms.controller;
 
 import com.learning.lms.entity.SkillPost;
+import com.learning.lms.enums.ReactionType;
 import com.learning.lms.service.SkillPostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,17 +20,15 @@ public class SkillPostController {
     @GetMapping
     public ResponseEntity<List<SkillPost>> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(postService.getAllPosts(page, size));
     }
 
     @GetMapping("/feed")
-    public ResponseEntity<List<SkillPost>> getFollowingFeed(
+    public ResponseEntity<List<SkillPost>> getFeed(
             @RequestParam Long userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(postService.getFollowingPosts(userId, page, size));
     }
 
@@ -37,24 +36,29 @@ public class SkillPostController {
     public ResponseEntity<List<SkillPost>> getUserPosts(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(postService.getUserPosts(userId, page, size));
     }
 
-    // --- UPDATED FOR FILE UPLOAD ---
+    // --- CREATE / REPOST ---
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<SkillPost> createPost(
             @RequestParam Long userId,
-            @RequestParam String description,
-            @RequestParam(required = false) MultipartFile image
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) MultipartFile image,
+            @RequestParam(required = false) Long originalPostId
     ) {
-        return ResponseEntity.ok(postService.createPost(userId, description, image));
+        return ResponseEntity.ok(postService.createPost(userId, description, image, originalPostId));
     }
 
-    @PutMapping("/{postId}")
-    public ResponseEntity<SkillPost> updatePost(@PathVariable Long postId, @RequestBody String description) {
-        return ResponseEntity.ok(postService.updatePost(postId, description));
+    // --- REACTION ---
+    @PostMapping("/{postId}/react")
+    public ResponseEntity<SkillPost> reactToPost(
+            @PathVariable Long postId,
+            @RequestParam Long userId,
+            @RequestParam ReactionType type
+    ) {
+        return ResponseEntity.ok(postService.reactToPost(postId, userId, type));
     }
 
     @DeleteMapping("/{postId}")
@@ -63,8 +67,8 @@ public class SkillPostController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{postId}/like")
-    public ResponseEntity<SkillPost> toggleLike(@PathVariable Long postId, @RequestParam Long userId) {
-        return ResponseEntity.ok(postService.toggleLike(postId, userId));
+    @PutMapping("/{postId}")
+    public ResponseEntity<SkillPost> updatePost(@PathVariable Long postId, @RequestBody String desc) {
+        return ResponseEntity.ok(postService.updatePost(postId, desc));
     }
 }

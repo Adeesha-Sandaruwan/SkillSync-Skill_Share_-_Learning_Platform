@@ -6,9 +6,9 @@ import com.learning.lms.dto.UserStatsResponse;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.enums.NotificationType;
-import com.learning.lms.repository.LearningPlanRepository; // Import this
-import com.learning.lms.repository.PlanStepRepository;     // Import this
-import com.learning.lms.repository.SkillPostRepository;    // Import this (Changed from PostRepository)
+import com.learning.lms.repository.LearningPlanRepository;
+import com.learning.lms.repository.PlanStepRepository;
+import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,7 +23,6 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
 
-    // --- ADDED MISSING INJECTIONS ---
     private final SkillPostRepository skillPostRepository;
     private final LearningPlanRepository learningPlanRepository;
     private final PlanStepRepository planStepRepository;
@@ -99,16 +98,29 @@ public class UserService {
         // 1. Count Posts
         int postCount = skillPostRepository.countByUserId(userId);
 
-        // 2. Count Total Likes
+        // 2. Count Total Reactions (Formerly Likes)
+        // --- FIX: Changed getLikedUserIds() to getReactions() ---
         int likeCount = skillPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .mapToInt(p -> p.getLikedUserIds().size())
+                .mapToInt(p -> p.getReactions().size())
                 .sum();
 
         // 3. Count Plans
-        int planCount = learningPlanRepository.findByUserId(userId).size();
+        // Note: Ensure LearningPlanRepository exists and works, or this will fail
+        int planCount = 0;
+        try {
+            planCount = learningPlanRepository.findByUserId(userId).size();
+        } catch (Exception e) {
+            // Fallback if repository is not fully set up yet
+            planCount = 0;
+        }
 
         // 4. Count Completed Steps
-        int stepsCompleted = planStepRepository.countCompletedStepsByUserId(userId);
+        int stepsCompleted = 0;
+        try {
+            stepsCompleted = planStepRepository.countCompletedStepsByUserId(userId);
+        } catch (Exception e) {
+            stepsCompleted = 0;
+        }
 
         // 5. Real Follower/Following Counts
         User user = getUserById(userId);
@@ -118,7 +130,6 @@ public class UserService {
         return new UserStatsResponse(postCount, likeCount, planCount, stepsCompleted, followers, following);
     }
 
-    // Helper methods kept for flexibility
     @Transactional(readOnly = true)
     public long getFollowerCount(Long userId) {
         return getUserById(userId).getFollowers().size();

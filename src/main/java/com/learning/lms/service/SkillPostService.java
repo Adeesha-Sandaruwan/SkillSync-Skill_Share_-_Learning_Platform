@@ -54,7 +54,10 @@ public class SkillPostService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         SkillPost post = new SkillPost();
-        post.setDescription(description);
+
+        // --- FIX 1: Handle null description to prevent 500 Error on Repost ---
+        post.setDescription(description != null ? description : "");
+
         post.setUser(user);
 
         // 1. Handle Repost
@@ -68,7 +71,8 @@ public class SkillPostService {
         // 2. Handle Image Upload
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                String uploadDir = "uploads"; // Relative to project root
+                // Ensure this matches the folder in WebConfig
+                String uploadDir = "uploads";
                 Path uploadPath = Paths.get(uploadDir);
                 if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
 

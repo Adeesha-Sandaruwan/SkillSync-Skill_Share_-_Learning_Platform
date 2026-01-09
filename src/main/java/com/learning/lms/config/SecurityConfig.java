@@ -36,14 +36,18 @@ public class SecurityConfig {
                         // 2. Allow Auth endpoints (Login/Register)
                         .requestMatchers("/api/auth/**", "/error").permitAll()
 
-                        // 3. Allow VIEWING Social Content (Public Profiles, Feed, Portfolio)
-                        // This fixes the 403 errors on the frontend load
+                        // 3. Allow Images from the Uploads folder to be seen by anyone
+                        // --- THIS IS THE CRITICAL FIX FOR IMAGES ---
+                        .requestMatchers("/uploads/**").permitAll()
+                        // -------------------------------------------
+
+                        // 4. Allow VIEWING Social Content (Public Profiles, Feed, Portfolio)
                         .requestMatchers(HttpMethod.GET, "/api/users/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/portfolio/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/plans/**").authenticated() // Plans usually private
+                        .requestMatchers(HttpMethod.GET, "/api/plans/**").authenticated()
 
-                        // 4. Lock everything else (Creating posts, adding steps, etc.)
+                        // 5. Lock everything else
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -56,7 +60,6 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Keep your working CORS settings
         configuration.setAllowedOriginPatterns(List.of("http://localhost:*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

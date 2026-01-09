@@ -26,6 +26,12 @@ public class LearningPlanController {
         return ResponseEntity.ok(planService.getUserPlans(userId));
     }
 
+    // --- ADDED THIS to fix the "View Plan" page error ---
+    @GetMapping("/plans/{planId}")
+    public ResponseEntity<LearningPlan> getPlanById(@PathVariable Long planId) {
+        return ResponseEntity.ok(planService.getPlanById(planId));
+    }
+
     @PutMapping("/plans/{planId}")
     public ResponseEntity<LearningPlan> updatePlan(@PathVariable Long planId, @Valid @RequestBody LearningPlanRequest request) {
         return ResponseEntity.ok(planService.updatePlan(planId, request));
@@ -43,7 +49,6 @@ public class LearningPlanController {
         return ResponseEntity.ok().build();
     }
 
-    // --- NEW: CLONE PLAN ---
     @PostMapping("/plans/{planId}/clone")
     public ResponseEntity<LearningPlan> clonePlan(@PathVariable Long planId, @RequestParam Long userId) {
         return ResponseEntity.ok(planService.clonePlan(planId, userId));

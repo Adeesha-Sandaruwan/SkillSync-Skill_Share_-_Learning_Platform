@@ -56,6 +56,12 @@ public class LearningPlanService {
         return planRepository.save(plan);
     }
 
+    public LearningPlan getPlanById(Long planId) {
+        return planRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Plan not found"));
+    }
+    
+
     @Transactional
     public LearningPlan updatePlan(Long planId, LearningPlanRequest request) {
         LearningPlan plan = planRepository.findById(planId)

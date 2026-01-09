@@ -10,17 +10,20 @@ const reactions = [
 
 const ReactionPopup = ({ onSelect }) => {
     return (
-        <div className="absolute bottom-full left-0 mb-2 bg-white rounded-full shadow-xl border border-slate-100 p-1 flex gap-1 animate-scale-in z-50">
-            {reactions.map((r) => (
-                <button
-                    key={r.type}
-                    onClick={(e) => { e.stopPropagation(); onSelect(r.type); }}
-                    className="w-9 h-9 flex items-center justify-center text-xl hover:scale-125 transition-transform hover:bg-slate-50 rounded-full"
-                    title={r.type}
-                >
-                    {r.emoji}
-                </button>
-            ))}
+        // Added pb-4 to bridge the hover gap
+        <div className="absolute bottom-full left-0 pb-4 w-full flex justify-center z-50">
+            <div className="bg-white rounded-full shadow-2xl border border-slate-100 p-2 flex gap-2 animate-scale-in">
+                {reactions.map((r) => (
+                    <button
+                        key={r.type}
+                        onClick={(e) => { e.stopPropagation(); onSelect(r.type); }}
+                        className="w-10 h-10 flex items-center justify-center text-2xl hover:scale-125 transition-transform hover:bg-slate-50 rounded-full"
+                        title={r.type}
+                    >
+                        {r.emoji}
+                    </button>
+                ))}
+            </div>
         </div>
     );
 };

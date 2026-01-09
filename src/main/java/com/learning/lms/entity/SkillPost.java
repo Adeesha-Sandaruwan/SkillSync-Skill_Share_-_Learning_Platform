@@ -28,7 +28,16 @@ public class SkillPost {
     @Column(length = 2000)
     private String description;
 
-    private String imageUrl; // Ensures single image is stored
+    // --- FIX: Add this back so old posts don't break ---
+    @Column(name = "image_url")
+    private String imageUrl;
+    // ---------------------------------------------------
+
+    // New Multi-Media System
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "post_media", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "media_url")
+    private List<String> mediaUrls = new ArrayList<>();
 
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -38,8 +47,6 @@ public class SkillPost {
     @JsonIgnoreProperties({"password", "posts", "followers", "following", "plans", "progressUpdates", "comments", "hibernateLazyInitializer", "handler"})
     private User user;
 
-    // --- REACTION SYSTEM ---
-    // Stores which user reacted with what type (e.g., User 1 -> LOVE)
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "post_reactions", joinColumns = @JoinColumn(name = "post_id"))
     @MapKeyColumn(name = "user_id")
@@ -47,7 +54,6 @@ public class SkillPost {
     @Enumerated(EnumType.STRING)
     private Map<Long, ReactionType> reactions = new HashMap<>();
 
-    // --- REPOST SYSTEM ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_post_id")
     @JsonIgnoreProperties({"comments", "reactions", "originalPost", "hibernateLazyInitializer", "handler"})

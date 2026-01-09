@@ -9,7 +9,6 @@ import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,7 +31,6 @@ public class SkillPostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    // --- PAGINATION ---
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository.findAllPosts(pageable).getContent();
@@ -47,54 +46,54 @@ public class SkillPostService {
         return postRepository.findByUserId(userId, pageable).getContent();
     }
 
-    // --- CREATE POST / REPOST ---
     @Transactional
-    public SkillPost createPost(Long userId, String description, MultipartFile imageFile, Long originalPostId) {
+    public SkillPost createPost(Long userId, String description, List<MultipartFile> mediaFiles, Long originalPostId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         SkillPost post = new SkillPost();
-
-        // --- FIX 1: Handle null description to prevent 500 Error on Repost ---
         post.setDescription(description != null ? description : "");
-
         post.setUser(user);
 
         // 1. Handle Repost
         if (originalPostId != null) {
             SkillPost original = postRepository.findById(originalPostId)
                     .orElseThrow(() -> new RuntimeException("Original post not found"));
-            // If reposting a repost, reference the ORIGINAL original
             post.setOriginalPost(original.getOriginalPost() != null ? original.getOriginalPost() : original);
         }
 
-        // 2. Handle Image Upload
-        if (imageFile != null && !imageFile.isEmpty()) {
+        // 2. Handle Multiple Media Uploads
+        if (mediaFiles != null && !mediaFiles.isEmpty()) {
+            if (mediaFiles.size() > 3) {
+                throw new RuntimeException("Maximum 3 media files allowed.");
+            }
+
+            String uploadDir = "uploads";
+            Path uploadPath = Paths.get(uploadDir);
             try {
-                // Ensure this matches the folder in WebConfig
-                String uploadDir = "uploads";
-                Path uploadPath = Paths.get(uploadDir);
                 if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
 
-                String filename = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
-                Files.copy(imageFile.getInputStream(), uploadPath.resolve(filename));
+                for (MultipartFile file : mediaFiles) {
+                    if (!file.isEmpty()) {
+                        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                        Files.copy(file.getInputStream(), uploadPath.resolve(filename));
 
-                // Generate Dynamic URL based on current server port/host
-                String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                        .path("/uploads/")
-                        .path(filename)
-                        .toUriString();
+                        String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                                .path("/uploads/")
+                                .path(filename)
+                                .toUriString();
 
-                post.setImageUrl(fileUrl);
+                        post.getMediaUrls().add(fileUrl);
+                    }
+                }
             } catch (IOException e) {
-                throw new RuntimeException("Failed to upload image");
+                throw new RuntimeException("Failed to upload media");
             }
         }
 
         return postRepository.save(post);
     }
 
-    // --- REACTION LOGIC ---
     @Transactional
     public SkillPost reactToPost(Long postId, Long userId, ReactionType type) {
         SkillPost post = postRepository.findById(postId)
@@ -102,13 +101,10 @@ public class SkillPostService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Toggle logic: If clicking same reaction, remove it. If different, update it.
         if (post.getReactions().containsKey(userId) && post.getReactions().get(userId) == type) {
             post.getReactions().remove(userId);
         } else {
             post.getReactions().put(userId, type);
-
-            // Notify only on new reaction, not updates
             if (!post.getUser().getId().equals(userId)) {
                 notificationService.createNotification(post.getUser(), user, NotificationType.LIKE, "reacted " + type + " to your post", post.getId());
             }

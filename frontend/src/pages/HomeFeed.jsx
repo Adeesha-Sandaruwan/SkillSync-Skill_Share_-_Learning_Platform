@@ -11,15 +11,13 @@ const HomeFeed = () => {
     const [isPosting, setIsPosting] = useState(false);
     const [newPost, setNewPost] = useState('');
 
-    // File Upload State
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
+    // MULTI-MEDIA STATE
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [previews, setPreviews] = useState([]);
     const fileInputRef = useRef(null);
 
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('global');
-
-    // Pagination
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef();
@@ -72,34 +70,66 @@ const HomeFeed = () => {
         if (node) observer.current.observe(node);
     }, [loading, hasMore]);
 
-    // --- FILE HANDLING ---
-    const handleFileSelect = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            const url = URL.createObjectURL(file);
-            setPreviewUrl(url);
+    // --- FILE HANDLING WITH VALIDATION ---
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length + selectedFiles.length > 3) {
+            alert("Maximum 3 media files allowed.");
+            return;
         }
+
+        const newFiles = [];
+        const newPreviews = [];
+
+        for (const file of files) {
+            // Check Video Duration
+            if (file.type.startsWith('video/')) {
+                const duration = await getVideoDuration(file);
+                if (duration > 30) {
+                    alert(`Video "${file.name}" is too long. Max 30 seconds.`);
+                    continue; // Skip this file
+                }
+            }
+            newFiles.push(file);
+            newPreviews.push({ url: URL.createObjectURL(file), type: file.type });
+        }
+
+        setSelectedFiles([...selectedFiles, ...newFiles]);
+        setPreviews([...previews, ...newPreviews]);
     };
 
-    const clearFile = () => {
-        setSelectedFile(null);
-        setPreviewUrl(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+    const getVideoDuration = (file) => {
+        return new Promise((resolve) => {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.onloadedmetadata = () => {
+                window.URL.revokeObjectURL(video.src);
+                resolve(video.duration);
+            };
+            video.src = URL.createObjectURL(file);
+        });
+    };
+
+    const removeFile = (index) => {
+        const updatedFiles = selectedFiles.filter((_, i) => i !== index);
+        const updatedPreviews = previews.filter((_, i) => i !== index);
+        setSelectedFiles(updatedFiles);
+        setPreviews(updatedPreviews);
     };
 
     const handleCreatePost = async (e) => {
         e.preventDefault();
-        if (!newPost.trim() && !selectedFile) return;
+        if (!newPost.trim() && selectedFiles.length === 0) return;
 
         setIsPosting(true);
         try {
-            // Using FormData for File Upload
             const formData = new FormData();
             formData.append('description', newPost);
-            if (selectedFile) {
-                formData.append('image', selectedFile);
-            }
+
+            // Append multiple files with the name 'media'
+            selectedFiles.forEach(file => {
+                formData.append('media', file);
+            });
 
             const res = await api.post(`/posts?userId=${user.id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -107,7 +137,9 @@ const HomeFeed = () => {
 
             setPosts(prev => [res.data, ...prev]);
             setNewPost('');
-            clearFile();
+            setSelectedFiles([]);
+            setPreviews([]);
+            if(fileInputRef.current) fileInputRef.current.value = '';
         } catch (error) {
             console.error("Error creating post:", error);
             alert("Failed to post. Please try again.");
@@ -120,7 +152,6 @@ const HomeFeed = () => {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <Navbar />
             <main className="container mx-auto px-4 py-6 max-w-2xl">
-
                 {/* CREATE POST CARD */}
                 <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/50 p-6 mb-8 transition-all hover:shadow-2xl hover:bg-white/90">
                     <div className="flex gap-4">
@@ -144,48 +175,51 @@ const HomeFeed = () => {
                                 onChange={(e) => setNewPost(e.target.value)}
                             />
 
-                            {/* Image Preview */}
-                            {previewUrl && (
-                                <div className="relative mt-3 rounded-xl overflow-hidden shadow-md max-h-60 border border-slate-200">
-                                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                                    <button
-                                        type="button"
-                                        onClick={clearFile}
-                                        className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
+                            {/* PREVIEWS GRID */}
+                            {previews.length > 0 && (
+                                <div className="mt-3 grid grid-cols-3 gap-2">
+                                    {previews.map((preview, idx) => (
+                                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm group">
+                                            {preview.type.startsWith('video') ? (
+                                                <video src={preview.url} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <img src={preview.url} alt="preview" className="w-full h-full object-cover" />
+                                            )}
+                                            <button type="button" onClick={() => removeFile(idx)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-red-500 transition-colors">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             <div className="flex justify-between items-center mt-4">
                                 <div className="flex items-center gap-2">
-                                    {/* Hidden File Input */}
                                     <input
                                         type="file"
                                         ref={fileInputRef}
                                         className="hidden"
-                                        accept="image/*"
+                                        accept="image/*,video/*"
+                                        multiple
                                         onChange={handleFileSelect}
                                     />
-                                    {/* Image Button */}
                                     <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         className="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                        Photo
+                                        Media (Max 3)
                                     </button>
                                 </div>
 
                                 <button
                                     type="submit"
-                                    disabled={isPosting || (!newPost.trim() && !selectedFile)}
+                                    disabled={isPosting || (!newPost.trim() && selectedFiles.length === 0)}
                                     className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-lg flex items-center justify-center min-w-[120px] ${
-                                        isPosting || (!newPost.trim() && !selectedFile)
+                                        isPosting || (!newPost.trim() && selectedFiles.length === 0)
                                             ? 'bg-slate-300 cursor-not-allowed shadow-none'
-                                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-indigo-500/30 active:scale-95'
+                                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                                     }`}
                                 >
                                     {isPosting ? <LoadingSpinner variant="button" /> : 'Share Post'}
@@ -195,16 +229,13 @@ const HomeFeed = () => {
                     </div>
                 </div>
 
-                {/* TABS */}
                 <div className="sticky top-[72px] z-10 backdrop-blur-md bg-white/60 rounded-xl border border-white/40 shadow-sm mb-6 flex p-1">
                     {['global', 'following'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all duration-300 ${
-                                activeTab === tab
-                                    ? 'bg-white text-indigo-600 shadow-md'
-                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                                activeTab === tab ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                             }`}
                         >
                             {tab === 'global' ? 'For You' : 'Following'}
@@ -212,7 +243,6 @@ const HomeFeed = () => {
                     ))}
                 </div>
 
-                {/* POSTS LIST */}
                 {error && <div className="text-center py-4 bg-red-50 text-red-600 mb-6 rounded-xl">{error}</div>}
 
                 <div className="space-y-6 pb-10">
@@ -220,14 +250,7 @@ const HomeFeed = () => {
                         if (posts.length === index + 1) return <div ref={lastPostRef} key={post.id}><PostCard post={post} /></div>;
                         return <PostCard key={post.id} post={post} />;
                     })}
-
                     {loading && <div className="flex justify-center py-6"><LoadingSpinner /></div>}
-
-                    {!loading && posts.length === 0 && (
-                        <div className="text-center py-20 bg-white/40 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">No posts yet</h3>
-                        </div>
-                    )}
                 </div>
             </main>
         </div>

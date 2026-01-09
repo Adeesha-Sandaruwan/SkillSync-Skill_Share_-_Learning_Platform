@@ -12,8 +12,14 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,31 +29,62 @@ public class SkillPostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    // Updated for Pagination
+    // --- PAGINATION METHODS ---
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Slice<SkillPost> slice = postRepository.findAllPosts(pageable);
         return slice.getContent();
     }
 
-    // Updated for Pagination
     public List<SkillPost> getFollowingPosts(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Slice<SkillPost> slice = postRepository.findPostsByFollowedUsers(userId, pageable);
         return slice.getContent();
     }
 
-    // Updated for Pagination
     public List<SkillPost> getUserPosts(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Slice<SkillPost> slice = postRepository.findByUserId(userId, pageable);
         return slice.getContent();
     }
 
+    // --- CREATE POST WITH IMAGE UPLOAD ---
     @Transactional
-    public SkillPost createPost(Long userId, String description, String imageUrl) {
+    public SkillPost createPost(Long userId, String description, MultipartFile imageFile) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String imageUrl = null;
+
+        // File Upload Logic
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                // 1. Create uploads directory if it doesn't exist
+                String uploadDir = System.getProperty("user.dir") + "/uploads";
+                Path uploadPath = Paths.get(uploadDir);
+                if (!Files.exists(uploadPath)) {
+                    Files.createDirectories(uploadPath);
+                }
+
+                // 2. Generate unique filename (UUID)
+                String originalFilename = imageFile.getOriginalFilename();
+                String extension = "";
+                if (originalFilename != null && originalFilename.contains(".")) {
+                    extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+                }
+                String newFilename = UUID.randomUUID().toString() + extension;
+
+                // 3. Save file
+                Path filePath = uploadPath.resolve(newFilename);
+                Files.copy(imageFile.getInputStream(), filePath);
+
+                // 4. Generate URL (This matches the WebConfig mapping)
+                imageUrl = "http://localhost:8080/uploads/" + newFilename;
+
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload image: " + e.getMessage());
+            }
+        }
 
         SkillPost post = SkillPost.builder()
                 .description(description)
@@ -56,11 +93,6 @@ public class SkillPostService {
                 .build();
 
         return postRepository.save(post);
-    }
-
-    @Transactional
-    public SkillPost createPost(Long userId, SkillPost postData) {
-        return createPost(userId, postData.getDescription(), postData.getImageUrl());
     }
 
     @Transactional
@@ -102,7 +134,6 @@ public class SkillPostService {
                 );
             }
         }
-
         return postRepository.save(post);
     }
 }

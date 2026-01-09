@@ -5,6 +5,7 @@ import com.learning.lms.service.SkillPostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class SkillPostController {
 
     @GetMapping("/feed")
     public ResponseEntity<List<SkillPost>> getFollowingFeed(
-            @RequestParam Long userId, // Usually taken from SecurityContext, but keeping your style
+            @RequestParam Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -41,9 +42,14 @@ public class SkillPostController {
         return ResponseEntity.ok(postService.getUserPosts(userId, page, size));
     }
 
-    @PostMapping
-    public ResponseEntity<SkillPost> createPost(@RequestParam Long userId, @RequestBody SkillPost post) {
-        return ResponseEntity.ok(postService.createPost(userId, post));
+    // --- UPDATED FOR FILE UPLOAD ---
+    @PostMapping(consumes = {"multipart/form-data"})
+    public ResponseEntity<SkillPost> createPost(
+            @RequestParam Long userId,
+            @RequestParam String description,
+            @RequestParam(required = false) MultipartFile image
+    ) {
+        return ResponseEntity.ok(postService.createPost(userId, description, image));
     }
 
     @PutMapping("/{postId}")

@@ -1,6 +1,7 @@
 package com.learning.lms.service;
 
 import com.learning.lms.dto.LearningPlanRequest;
+import com.learning.lms.dto.PlanStepRequest; // Assuming you have/need this DTO
 import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.entity.PlanStep;
 import com.learning.lms.entity.User;
@@ -11,16 +12,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class LearningPlanService {
 
-    private final LearningPlanRepository learningPlanRepository;
-    private final PlanStepRepository planStepRepository;
+    private final LearningPlanRepository planRepository;
     private final UserRepository userRepository;
+    private final PlanStepRepository stepRepository;
+
+    public List<LearningPlan> getUserPlans(Long userId) {
+        return planRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
 
     @Transactional
     public LearningPlan createPlan(Long userId, LearningPlanRequest request) {
@@ -32,53 +36,13 @@ public class LearningPlanService {
         plan.setDescription(request.getDescription());
         plan.setCategory(request.getCategory());
         plan.setDifficulty(request.getDifficulty());
-        plan.setTopic(request.getTopic());
-        plan.setResources(request.getResources());
-        plan.setStartDate(request.getStartDate());
         plan.setTargetDate(request.getTargetDate());
+        plan.setPublic(true); // Default
         plan.setUser(user);
 
-        // Map Steps from Request DTO to Entity
-        if (request.getSteps() != null && !request.getSteps().isEmpty()) {
-            List<PlanStep> planSteps = new ArrayList<>();
-            for (LearningPlanRequest.StepRequest stepReq : request.getSteps()) {
-                PlanStep step = new PlanStep();
-                step.setTitle(stepReq.getTitle());
-                step.setResourceLink(stepReq.getResourceLink());
-                step.setEstimatedTime(stepReq.getEstimatedTime());
-                step.setCompleted(false);
-                step.setLearningPlan(plan); // Set parent relationship
-                planSteps.add(step);
-            }
-            plan.setSteps(planSteps);
-        }
-
-        return learningPlanRepository.save(plan);
-    }
-
-    public List<LearningPlan> getUserPlans(Long userId) {
-        return learningPlanRepository.findByUserIdOrderByCreatedAtDesc(userId);
-    }
-
-    @Transactional
-    public LearningPlan updatePlan(Long planId, LearningPlanRequest request) {
-        LearningPlan plan = learningPlanRepository.findById(planId)
-                .orElseThrow(() -> new RuntimeException("Plan not found"));
-
-        plan.setTitle(request.getTitle());
-        plan.setDescription(request.getDescription());
-        plan.setCategory(request.getCategory());
-        plan.setDifficulty(request.getDifficulty());
-        plan.setTopic(request.getTopic());
-        plan.setResources(request.getResources());
-        plan.setStartDate(request.getStartDate());
-        plan.setTargetDate(request.getTargetDate());
-
-        // Update Steps: Clear existing and add new ones (simpler approach for updates)
+        // Add Steps if provided in request
         if (request.getSteps() != null) {
-            plan.getSteps().clear(); // OrphanRemoval will delete these from DB
-
-            for (LearningPlanRequest.StepRequest stepReq : request.getSteps()) {
+            for (PlanStepRequest stepReq : request.getSteps()) {
                 PlanStep step = new PlanStep();
                 step.setTitle(stepReq.getTitle());
                 step.setResourceLink(stepReq.getResourceLink());
@@ -89,20 +53,67 @@ public class LearningPlanService {
             }
         }
 
-        return learningPlanRepository.save(plan);
+        return planRepository.save(plan);
+    }
+
+    @Transactional
+    public LearningPlan updatePlan(Long planId, LearningPlanRequest request) {
+        LearningPlan plan = planRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Plan not found"));
+
+        plan.setTitle(request.getTitle());
+        plan.setDescription(request.getDescription());
+        plan.setTargetDate(request.getTargetDate());
+        // We don't overwrite steps here usually, steps are managed individually or via a specific edit endpoint
+        // to avoid wiping progress.
+
+        return planRepository.save(plan);
     }
 
     @Transactional
     public void deletePlan(Long planId) {
-        learningPlanRepository.deleteById(planId);
+        planRepository.deleteById(planId);
     }
 
     @Transactional
     public void toggleStep(Long stepId) {
-        PlanStep step = planStepRepository.findById(stepId)
+        PlanStep step = stepRepository.findById(stepId)
                 .orElseThrow(() -> new RuntimeException("Step not found"));
-
         step.setCompleted(!step.isCompleted());
-        planStepRepository.save(step);
+        stepRepository.save(step);
+    }
+
+    // --- INDUSTRY LEVEL FEATURE: CLONING ---
+    @Transactional
+    public LearningPlan clonePlan(Long originalPlanId, Long newOwnerId) {
+        LearningPlan original = planRepository.findById(originalPlanId)
+                .orElseThrow(() -> new RuntimeException("Original plan not found"));
+
+        User newOwner = userRepository.findById(newOwnerId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Create the shell
+        LearningPlan clone = new LearningPlan();
+        clone.setTitle(original.getTitle() + " (Copy)");
+        clone.setDescription(original.getDescription());
+        clone.setCategory(original.getCategory());
+        clone.setDifficulty(original.getDifficulty());
+        clone.setTargetDate(original.getTargetDate()); // Can be adjusted by user later
+        clone.setPublic(true);
+        clone.setClonedFromId(original.getId());
+        clone.setUser(newOwner);
+
+        // Deep Copy Steps (Resetting progress)
+        for (PlanStep oldStep : original.getSteps()) {
+            PlanStep newStep = new PlanStep();
+            newStep.setTitle(oldStep.getTitle());
+            newStep.setResourceLink(oldStep.getResourceLink());
+            newStep.setEstimatedTime(oldStep.getEstimatedTime());
+            newStep.setCompleted(false); // Reset progress!
+            newStep.setLearningPlan(clone);
+            clone.getSteps().add(newStep);
+        }
+
+        return planRepository.save(clone);
     }
 }

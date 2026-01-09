@@ -8,9 +8,11 @@ import java.util.List;
 
 @Repository
 public interface LearningPlanRepository extends JpaRepository<LearningPlan, Long> {
-    // Used by LearningPlanService for the specific ordered list
+
     List<LearningPlan> findByUserIdOrderByCreatedAtDesc(Long userId);
 
-    // Used by UserService (Fixes the "cannot find symbol" error)
     List<LearningPlan> findByUserId(Long userId);
+
+    // For Discovery/Explore page
+    List<LearningPlan> findByIsPublicTrueOrderByCreatedAtDesc();
 }

@@ -16,35 +16,36 @@ public class LearningPlanController {
 
     private final LearningPlanService planService;
 
-    // POST /api/users/{userId}/plans (Create Plan)
     @PostMapping("/users/{userId}/plans")
     public ResponseEntity<LearningPlan> createPlan(@PathVariable Long userId, @Valid @RequestBody LearningPlanRequest request) {
         return ResponseEntity.ok(planService.createPlan(userId, request));
     }
 
-    // GET /api/users/{userId}/plans (Get User Plans)
     @GetMapping("/users/{userId}/plans")
     public ResponseEntity<List<LearningPlan>> getUserPlans(@PathVariable Long userId) {
         return ResponseEntity.ok(planService.getUserPlans(userId));
     }
 
-    // PUT /api/plans/{planId} (Update Plan)
     @PutMapping("/plans/{planId}")
     public ResponseEntity<LearningPlan> updatePlan(@PathVariable Long planId, @Valid @RequestBody LearningPlanRequest request) {
         return ResponseEntity.ok(planService.updatePlan(planId, request));
     }
 
-    // DELETE /api/plans/{planId} (Delete Plan)
     @DeleteMapping("/plans/{planId}")
     public ResponseEntity<Void> deletePlan(@PathVariable Long planId) {
         planService.deletePlan(planId);
         return ResponseEntity.noContent().build();
     }
 
-    // PUT /api/plans/steps/{stepId}/toggle
     @PutMapping("/plans/steps/{stepId}/toggle")
     public ResponseEntity<Void> toggleStep(@PathVariable Long stepId) {
         planService.toggleStep(stepId);
         return ResponseEntity.ok().build();
+    }
+
+    // --- NEW: CLONE PLAN ---
+    @PostMapping("/plans/{planId}/clone")
+    public ResponseEntity<LearningPlan> clonePlan(@PathVariable Long planId, @RequestParam Long userId) {
+        return ResponseEntity.ok(planService.clonePlan(planId, userId));
     }
 }

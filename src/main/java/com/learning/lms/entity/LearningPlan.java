@@ -27,22 +27,26 @@ public class LearningPlan {
     private String category;
     private String difficulty; // Beginner, Intermediate, Advanced
 
+    // --- New Fields for Industry Level Features ---
+    @Column(nullable = false)
+    private boolean isPublic = true; // Default to public for social sharing
+
+    private Long clonedFromId; // If this was copied from another user, store original ID here
+    // ----------------------------------------------
+
     private String topic;
     private String resources;
     private LocalDate startDate;
     private LocalDate targetDate;
 
-    // @JsonManagedReference tells Jackson: "Serialize this list"
-    // orphanRemoval = true means if you remove a step from this list, delete it from DB
     @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonManagedReference
-    @ToString.Exclude // Prevent Lombok infinite loop
+    @ToString.Exclude
     private List<PlanStep> steps = new ArrayList<>();
 
-    // --- User Relationship ---
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
-    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "following", "followers"})
+    @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "following", "followers", "hibernateLazyInitializer", "handler"})
     private User user;
 
     private LocalDateTime createdAt;

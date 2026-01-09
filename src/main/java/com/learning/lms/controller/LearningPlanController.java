@@ -49,6 +49,11 @@ public class LearningPlanController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/plans/public")
+    public ResponseEntity<List<LearningPlan>> getPublicPlans() {
+        return ResponseEntity.ok(planService.getPublicPlans());
+    }
+
     @PostMapping("/plans/{planId}/clone")
     public ResponseEntity<LearningPlan> clonePlan(@PathVariable Long planId, @RequestParam Long userId) {
         return ResponseEntity.ok(planService.clonePlan(planId, userId));

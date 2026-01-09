@@ -60,8 +60,11 @@ public class LearningPlanService {
         return planRepository.findById(planId)
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
-    
 
+
+    public List<LearningPlan> getPublicPlans() {
+        return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+    }
     @Transactional
     public LearningPlan updatePlan(Long planId, LearningPlanRequest request) {
         LearningPlan plan = planRepository.findById(planId)

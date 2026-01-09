@@ -24,7 +24,6 @@ const Navbar = () => {
         if (user?.id) fetchUnreadCount();
     }, [user, location.pathname]);
 
-    // Close search & mobile menu when clicking outside or changing route
     useEffect(() => {
         setIsMobileMenuOpen(false);
         const handleClickOutside = (event) => {
@@ -145,7 +144,8 @@ const Navbar = () => {
                     {/* DESKTOP MENU */}
                     <div className="hidden md:flex items-center space-x-6 flex-shrink-0">
                         <NavLink to="/">Feed</NavLink>
-                        {/* FIX IS HERE: Changed from /learning-plans to /plans/create */}
+                        {/* NEW EXPLORE LINK */}
+                        <NavLink to="/explore">Explore</NavLink>
                         <NavLink to="/plans/create">Roadmaps</NavLink>
 
                         <div className="relative">
@@ -209,7 +209,7 @@ const Navbar = () => {
 
                         <div className="space-y-1">
                             <Link to="/" className="block px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">Feed</Link>
-                            {/* FIX IS HERE: Changed from /learning-plans to /plans/create */}
+                            <Link to="/explore" className="block px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">Explore</Link>
                             <Link to="/plans/create" className="block px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">Roadmap</Link>
                             <Link to="/notifications" className="flex justify-between items-center px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg">
                                 <span>Notifications</span>

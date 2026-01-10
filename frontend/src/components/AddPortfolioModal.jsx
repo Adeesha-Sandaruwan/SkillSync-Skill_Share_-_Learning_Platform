@@ -2,49 +2,80 @@ import { useState } from 'react';
 import api from '../services/api';
 
 const AddPortfolioModal = ({ userId, type, onClose, onSuccess }) => {
-    const [form, setForm] = useState({ title: '', company: '', description: '', years: '', name: '', issuer: '', date: '' });
+    const [formData, setFormData] = useState({
+        title: '',
+        company: '', // Only for experience
+        years: '',   // Only for experience
+        skillName: '', // Only for skill
+        level: 'Intermediate' // Only for skill
+    });
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post(`/portfolio/${userId}/${type}`, form);
+            // Mapping frontend form to likely backend endpoint structure
+            // Assuming endpoint: POST /api/portfolio/{type}/{userId}
+            await api.post(`/portfolio/${type}/${userId}`, formData);
             onSuccess();
             onClose();
-        } catch (error) { alert("Failed"); } finally { setLoading(false); }
+        } catch (error) {
+            alert(`Failed to add ${type}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-2xl w-full max-w-md">
-                <h2 className="text-xl font-bold mb-4 capitalize">Add {type}</h2>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    {type === 'experience' && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="font-bold text-lg text-slate-800 capitalize">Add {type}</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+                    {type === 'experience' ? (
                         <>
-                            <input placeholder="Job Title" className="w-full p-2 border rounded" onChange={e=>setForm({...form, title: e.target.value})} required/>
-                            <input placeholder="Company" className="w-full p-2 border rounded" onChange={e=>setForm({...form, company: e.target.value})} required/>
-                            <input placeholder="Years (e.g. 2023-Present)" className="w-full p-2 border rounded" onChange={e=>setForm({...form, years: e.target.value})} required/>
-                            <textarea placeholder="Description" className="w-full p-2 border rounded" rows="3" onChange={e=>setForm({...form, description: e.target.value})} required/>
+                            <input
+                                required placeholder="Job Title / Role"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold"
+                                value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
+                            />
+                            <input
+                                required placeholder="Company / Organization"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})}
+                            />
+                            <input
+                                required placeholder="Years (e.g. 2020 - Present)"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                value={formData.years} onChange={e => setFormData({...formData, years: e.target.value})}
+                            />
+                        </>
+                    ) : (
+                        // For Skills/Certificates
+                        <>
+                            <input
+                                required placeholder="Skill / Certificate Name"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold"
+                                value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} // Reusing 'title' field
+                            />
                         </>
                     )}
-                    {type === 'certificate' && (
-                        <>
-                            <input placeholder="Certificate Name" className="w-full p-2 border rounded" onChange={e=>setForm({...form, name: e.target.value})} required/>
-                            <input placeholder="Issuer" className="w-full p-2 border rounded" onChange={e=>setForm({...form, issuer: e.target.value})} required/>
-                            <input placeholder="Date (e.g. Jan 2025)" className="w-full p-2 border rounded" onChange={e=>setForm({...form, date: e.target.value})} required/>
-                        </>
-                    )}
-                    {type === 'skill' && (
-                        <input placeholder="Skill Name (e.g. Java)" className="w-full p-2 border rounded" onChange={e=>setForm({...form, name: e.target.value})} required/>
-                    )}
-                    <div className="flex justify-end gap-2 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500">Cancel</button>
-                        <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold">{loading ? 'Saving...' : 'Add'}</button>
-                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg"
+                    >
+                        {loading ? 'Adding...' : 'Add Item'}
+                    </button>
                 </form>
             </div>
         </div>
     );
 };
+
 export default AddPortfolioModal;

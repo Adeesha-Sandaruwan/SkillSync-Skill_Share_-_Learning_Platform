@@ -1,5 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+// IMPORT THIS
+import NotificationDropdown from './NotificationDropdown';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -30,26 +32,34 @@ const Navbar = () => {
                 <div className="hidden md:flex items-center gap-1 bg-slate-100/50 p-1 rounded-full border border-slate-200/50">
                     <NavLink to="/" active={isActive('/')} icon={<HomeIcon />} text="Feed" />
                     <NavLink to="/explore" active={isActive('/explore')} icon={<CompassIcon />} text="Explore" />
-                    {/* NEW LEADERBOARD LINK */}
                     <NavLink to="/leaderboard" active={isActive('/leaderboard')} icon={<TrophyIcon />} text="Rankings" />
                     <NavLink to={`/profile/${user?.id}`} active={location.pathname.includes('/profile')} icon={<UserIcon />} text="Profile" />
                 </div>
 
-                {/* User Menu */}
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={handleLogout}
-                        className="text-sm font-bold text-slate-500 hover:text-red-500 transition-colors"
-                    >
-                        Sign Out
-                    </button>
-                    <Link to={`/profile/${user?.id}`}>
-                        <img
-                            src={user?.avatarUrl}
-                            alt="Me"
-                            className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 object-cover"
-                        />
-                    </Link>
+                {/* Right Side Actions */}
+                <div className="flex items-center gap-3">
+
+                    {/* --- ADD NOTIFICATION DROPDOWN HERE --- */}
+                    <NotificationDropdown />
+                    {/* -------------------------------------- */}
+
+                    <div className="h-6 w-px bg-slate-200 mx-1 hidden md:block"></div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleLogout}
+                            className="hidden md:block text-sm font-bold text-slate-500 hover:text-red-500 transition-colors"
+                        >
+                            Sign Out
+                        </button>
+                        <Link to={`/profile/${user?.id}`}>
+                            <img
+                                src={user?.avatarUrl}
+                                alt="Me"
+                                className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 object-cover hover:ring-2 hover:ring-indigo-500 transition-all"
+                            />
+                        </Link>
+                    </div>
                 </div>
             </div>
 
@@ -89,18 +99,10 @@ const MobileNavLink = ({ to, active, icon }) => (
     </Link>
 );
 
-// Icons
-const HomeIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-);
-const CompassIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
-);
-const TrophyIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-);
-const UserIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-);
+// Icons (Keep existing icons)
+const HomeIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>);
+const CompassIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>);
+const TrophyIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
+const UserIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>);
 
 export default Navbar;

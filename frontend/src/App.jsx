@@ -1,46 +1,32 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext.jsx';
-import { useAuth } from './context/useAuth';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import HomeFeed from './pages/HomeFeed';
 import Profile from './pages/Profile';
-import Notifications from './pages/Notifications';
+import Explore from './pages/Explore';
+import Leaderboard from './pages/Leaderboard'; // <--- Import
 import CreatePlan from './pages/CreatePlan';
 import PlanDetails from './pages/PlanDetails';
-import Explore from './pages/Explore'; // <--- NEW IMPORT
-
-const PrivateRoute = ({ children }) => {
-    const { user, loading } = useAuth();
-    if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
-    return user ? children : <Navigate to="/login" />;
-};
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
     return (
-        <AuthProvider>
-            <Router>
-                <div className="min-h-screen bg-gray-100 text-gray-900">
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
+        <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-                        {/* Protected Routes */}
-                        <Route path="/" element={<PrivateRoute><HomeFeed /></PrivateRoute>} />
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<HomeFeed />} />
+                <Route path="/explore" element={<Explore />} />
+                <Route path="/leaderboard" element={<Leaderboard />} /> {/* <--- New Route */}
+                <Route path="/create-plan" element={<CreatePlan />} />
+                <Route path="/plans/:planId" element={<PlanDetails />} />
+                <Route path="/profile/:userId" element={<Profile />} />
+            </Route>
 
-                        {/* EXPLORE PAGE */}
-                        <Route path="/explore" element={<PrivateRoute><Explore /></PrivateRoute>} />
-
-                        <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
-                        <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-
-                        <Route path="/plans/create" element={<PrivateRoute><CreatePlan /></PrivateRoute>} />
-                        <Route path="/plans/:planId" element={<PrivateRoute><PlanDetails /></PrivateRoute>} />
-
-                    </Routes>
-                </div>
-            </Router>
-        </AuthProvider>
+            <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
     );
 }
 

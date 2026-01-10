@@ -202,6 +202,18 @@ const Profile = () => {
         </button>
     );
 
+    // --- GAMIFICATION UTILS ---
+    const badgeMap = {
+        'NOVICE': { icon: '🌱', label: 'Novice', bg: 'bg-green-100 text-green-700' },
+        'APPRENTICE': { icon: '⚒️', label: 'Apprentice', bg: 'bg-blue-100 text-blue-700' },
+        'MASTER': { icon: '👑', label: 'Master', bg: 'bg-amber-100 text-amber-700' },
+        'SOCIALITE': { icon: '💬', label: 'Socialite', bg: 'bg-purple-100 text-purple-700' },
+    };
+
+    // Calculate XP progress to next level (Assume 100 XP per level)
+    const currentLevelXp = (profileUser.xp || 0) % 100;
+    const xpPercent = currentLevelXp; // Since 100 is max
+
     return (
         <div className="min-h-screen bg-slate-50">
             <Navbar />
@@ -210,7 +222,7 @@ const Profile = () => {
             </div>
 
             <main className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-20 md:-mt-24 pb-12">
-                {/* Header (Same as before) */}
+                {/* Header Card */}
                 <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-10">
                     <div className="relative">
                         <div className="w-32 h-32 md:w-40 md:h-40 rounded-full p-1.5 bg-white shadow-lg">
@@ -233,8 +245,35 @@ const Profile = () => {
                                 </button>
                             )}
                         </div>
+
+                        {/* --- GAMIFICATION BAR --- */}
+                        <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">Level {profileUser.level || 1}</span>
+                                    <span className="text-xs text-slate-400 font-semibold">({profileUser.xp || 0} XP)</span>
+                                </div>
+                                <span className="text-xs font-bold text-indigo-600">{xpPercent}/100 XP to Lvl { (profileUser.level || 1) + 1}</span>
+                            </div>
+                            <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600" style={{ width: `${xpPercent}%` }}></div>
+                            </div>
+
+                            {/* BADGES */}
+                            {profileUser.badges && profileUser.badges.length > 0 && (
+                                <div className="flex gap-2 mt-4 flex-wrap">
+                                    {profileUser.badges.map(b => (
+                                        <span key={b} className={`px-2 py-1 rounded-md text-xs font-bold border ${badgeMap[b]?.bg || 'bg-gray-100'} flex items-center gap-1`}>
+                                            {badgeMap[b]?.icon} {badgeMap[b]?.label || b}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {/* ------------------------ */}
+
                         {/* Stats UI */}
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 border-t border-slate-100 pt-6 mt-6">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 border-t border-slate-100 pt-6">
                             {[
                                 { label: 'Followers', val: stats.followers }, { label: 'Following', val: stats.following },
                                 { label: 'Posts', val: stats.totalPosts }, { label: 'Likes', val: stats.totalLikes },
@@ -269,7 +308,6 @@ const Profile = () => {
                             {loadingPosts && <div className="text-center py-4"><LoadingSpinner/></div>}
                         </div>
                     )}
-                    {/* Other tabs remain standard */}
                     {activeTab === 'plans' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {userPlans.length === 0 ? <EmptyState msg="No active roadmaps." /> : userPlans.map(plan => <PlanCard key={plan.id} plan={plan} isOwner={isOwner} onDelete={handleDeletePlan} />)}
@@ -300,8 +338,7 @@ const Profile = () => {
                     )}
                     {activeTab === 'portfolio' && (
                         <div className="space-y-6">
-                            {/* ... (Existing Portfolio UI Code) ... */}
-                            {/* Shortened for brevity as requested only changes, but keeping structure valid */}
+                            {/* Standard Portfolio UI */}
                             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-lg font-bold">💼 Experience</h3>
@@ -317,7 +354,6 @@ const Profile = () => {
                                     ))}
                                 </div>
                             </div>
-                            {/* ... Certificates and Skills sections ... */}
                         </div>
                     )}
                 </div>

@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -54,9 +55,16 @@ public class UserController {
         return ResponseEntity.ok(userService.isFollowing(followerId, userId));
     }
 
-    // --- THE FIX: Only KEEP this one (The new detailed stats) ---
     @GetMapping("/{userId}/stats")
     public ResponseEntity<UserStatsResponse> getUserStats(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getUserStats(userId));
+    }
+
+    // --- GAMIFICATION ENDPOINT ---
+    @GetMapping("/leaderboard")
+    public ResponseEntity<List<User>> getLeaderboard() {
+        // Return top 10 users for efficiency
+        List<User> topUsers = userService.getLeaderboard().stream().limit(10).collect(Collectors.toList());
+        return ResponseEntity.ok(topUsers);
     }
 }

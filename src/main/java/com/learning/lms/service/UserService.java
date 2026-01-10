@@ -11,9 +11,13 @@ import com.learning.lms.repository.PlanStepRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,10 @@ public class UserService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        // Initialize Gamification
+        user.setXp(0);
+        user.setLevel(1);
+        user.getBadges().add("NOVICE");
         return userRepository.save(user);
     }
 
@@ -63,19 +71,17 @@ public class UserService {
     @Transactional
     public void followUser(Long followerId, Long targetUserId) {
         if (followerId.equals(targetUserId)) throw new RuntimeException("You cannot follow yourself");
-
         User follower = getUserById(followerId);
         User target = getUserById(targetUserId);
 
         follower.follow(target);
         userRepository.save(follower);
 
+        // Award XP for social interaction
+        awardXp(followerId, 5);
+
         notificationService.createNotification(
-                target,
-                follower,
-                NotificationType.FOLLOW,
-                "started following you.",
-                null
+                target, follower, NotificationType.FOLLOW, "started following you.", null
         );
     }
 
@@ -95,48 +101,46 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserStatsResponse getUserStats(Long userId) {
-        // 1. Count Posts
         int postCount = skillPostRepository.countByUserId(userId);
-
-        // 2. Count Total Reactions (Formerly Likes)
-        // --- FIX: Changed getLikedUserIds() to getReactions() ---
         int likeCount = skillPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .mapToInt(p -> p.getReactions().size())
-                .sum();
-
-        // 3. Count Plans
-        // Note: Ensure LearningPlanRepository exists and works, or this will fail
+                .mapToInt(p -> p.getReactions().size()).sum();
         int planCount = 0;
-        try {
-            planCount = learningPlanRepository.findByUserId(userId).size();
-        } catch (Exception e) {
-            // Fallback if repository is not fully set up yet
-            planCount = 0;
-        }
-
-        // 4. Count Completed Steps
+        try { planCount = learningPlanRepository.findByUserId(userId).size(); } catch (Exception e) {}
         int stepsCompleted = 0;
-        try {
-            stepsCompleted = planStepRepository.countCompletedStepsByUserId(userId);
-        } catch (Exception e) {
-            stepsCompleted = 0;
+        try { stepsCompleted = planStepRepository.countCompletedStepsByUserId(userId); } catch (Exception e) {}
+
+        User user = getUserById(userId);
+        return new UserStatsResponse(postCount, likeCount, planCount, stepsCompleted, user.getFollowers().size(), user.getFollowing().size());
+    }
+
+    // --- GAMIFICATION ENGINE ---
+    @Transactional
+    public void awardXp(Long userId, int amount) {
+        User user = getUserById(userId);
+        user.setXp(user.getXp() + amount);
+
+        // Logic: Level Up every 100 XP
+        int newLevel = (user.getXp() / 100) + 1;
+        if (newLevel > user.getLevel()) {
+            user.setLevel(newLevel);
+            // Optional: Send notification for Level Up here
         }
 
-        // 5. Real Follower/Following Counts
-        User user = getUserById(userId);
-        int followers = user.getFollowers().size();
-        int following = user.getFollowing().size();
+        // Logic: Badge Awards
+        if (user.getXp() >= 50 && !user.getBadges().contains("APPRENTICE")) {
+            user.getBadges().add("APPRENTICE");
+        }
+        if (user.getXp() >= 500 && !user.getBadges().contains("MASTER")) {
+            user.getBadges().add("MASTER");
+        }
+        if (user.getFollowers().size() >= 5 && !user.getBadges().contains("SOCIALITE")) {
+            user.getBadges().add("SOCIALITE");
+        }
 
-        return new UserStatsResponse(postCount, likeCount, planCount, stepsCompleted, followers, following);
+        userRepository.save(user);
     }
 
-    @Transactional(readOnly = true)
-    public long getFollowerCount(Long userId) {
-        return getUserById(userId).getFollowers().size();
-    }
-
-    @Transactional(readOnly = true)
-    public long getFollowingCount(Long userId) {
-        return getUserById(userId).getFollowing().size();
+    public List<User> getLeaderboard() {
+        return userRepository.findAll(Sort.by("xp").descending());
     }
 }

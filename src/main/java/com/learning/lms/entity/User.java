@@ -43,7 +43,17 @@ public class User implements UserDetails {
     @Column(columnDefinition = "TEXT")
     private String avatarUrl;
 
-    // Relationships - Changed to LAZY for performance
+    // --- GAMIFICATION FIELDS ---
+    private Integer xp = 0; // Experience Points
+    private Integer level = 1; // Current Level
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_badges", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "badge_name")
+    private Set<String> badges = new HashSet<>();
+    // ---------------------------
+
+    // Relationships
     @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
@@ -79,24 +89,15 @@ public class User implements UserDetails {
     }
 
     @Override
-    public String getPassword() {
-        return password;
-    }
-
+    public String getPassword() { return password; }
     @Override
-    public String getUsername() {
-        return username;
-    }
-
+    public String getUsername() { return username; }
     @Override
     public boolean isAccountNonExpired() { return true; }
-
     @Override
     public boolean isAccountNonLocked() { return true; }
-
     @Override
     public boolean isCredentialsNonExpired() { return true; }
-
     @Override
     public boolean isEnabled() { return true; }
 }

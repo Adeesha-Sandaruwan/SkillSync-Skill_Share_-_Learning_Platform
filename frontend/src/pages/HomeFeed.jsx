@@ -28,7 +28,7 @@ const HomeFeed = () => {
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef();
 
-    // --- STRICT VIDEO CHECK HELPER ---
+    // Helper: Strict Video Check
     const isVideoUrl = (url) => {
         if (!url) return false;
         const lower = url.toLowerCase();
@@ -37,14 +37,11 @@ const HomeFeed = () => {
 
     const hasVideo = (post) => {
         const p = post.originalPost || post;
-        const media = p.mediaUrls && p.mediaUrls.length > 0
-            ? p.mediaUrls
-            : (p.imageUrl ? [p.imageUrl] : []);
-
+        const media = p.mediaUrls && p.mediaUrls.length > 0 ? p.mediaUrls : (p.imageUrl ? [p.imageUrl] : []);
         return media.some(url => isVideoUrl(url));
     };
 
-    // --- CRITICAL: FILTER ONLY VIDEO POSTS FOR THE VIEWER ---
+    // Filter only videos for the Shorts Player
     const videoPosts = posts.filter(p => hasVideo(p));
 
     useEffect(() => {
@@ -73,7 +70,7 @@ const HomeFeed = () => {
             setHasMore(newPosts.length === 10);
             setError(null);
         } catch (error) {
-            console.error(error);
+            console.error("Error fetching posts:", error);
             setError("Failed to load feed.");
         } finally {
             setLoading(false);
@@ -119,15 +116,17 @@ const HomeFeed = () => {
         } catch (e) { alert("Failed to post"); } finally { setIsPosting(false); }
     };
 
-    // --- VIEWER HANDLERS ---
+    // --- NEW: DELETE HANDLER ---
+    const handleDeletePost = (postId) => {
+        // Remove from the main list immediately
+        setPosts(prev => prev.filter(p => p.id !== postId));
+    };
+
     const openShortsViewer = (postId) => {
-        // Double check: Only open if this post actually exists in our video list
         if (videoPosts.some(p => p.id === postId)) {
             setInitialShortsId(postId);
             setIsShortsOpen(true);
             document.body.style.overflow = 'hidden';
-        } else {
-            console.error("Attempted to open non-video post in Shorts Viewer");
         }
     };
 
@@ -141,14 +140,12 @@ const HomeFeed = () => {
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...updatedData } : p));
     };
 
-    // Calculate index based on the VIDEO ONLY list
     const shortsStartIndex = videoPosts.findIndex(p => p.id === initialShortsId);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <Navbar />
 
-            {/* SHORTS VIEWER: Only renders if we have videos and a valid index */}
             {isShortsOpen && shortsStartIndex !== -1 && (
                 <ShortsViewer
                     posts={videoPosts}
@@ -172,14 +169,13 @@ const HomeFeed = () => {
                     </form>
                 </div>
 
-                {/* POST LIST */}
                 <div className="space-y-6 pb-10">
                     {posts.map((post, index) => (
                         <div key={post.id} ref={index === posts.length - 1 ? lastPostRef : null}>
                             <PostCard
                                 post={post}
-                                // Only pass the video handler if the post actually has a video
                                 onOpenVideo={hasVideo(post) ? () => openShortsViewer(post.id) : null}
+                                onDeleteSuccess={() => handleDeletePost(post.id)} // <--- Pass Delete Handler
                             />
                         </div>
                     ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CommentSection from './CommentSection';
 import ReactionPopup from './ReactionPopup';
 import { useAuth } from '../context/useAuth';
@@ -7,6 +7,8 @@ import api from '../services/api';
 
 const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
     const { user: currentUser } = useAuth();
+    const navigate = useNavigate(); // Hook for navigation
+
     const [showComments, setShowComments] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
     const [myReaction, setMyReaction] = useState(null);
@@ -28,6 +30,9 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         ? displayPost.mediaUrls
         : (displayPost.imageUrl ? [displayPost.imageUrl] : []);
 
+    // --- CHECK FOR ATTACHED PLAN ---
+    const linkedPlan = displayPost.learningPlan;
+
     useEffect(() => {
         if (post.reactions) {
             const counts = {};
@@ -38,6 +43,7 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         setEditContent(post.description);
     }, [post, currentUser?.id]);
 
+    // ... (Keep existing useEffect for keyboard nav) ...
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (lightboxIndex === null) return;
@@ -135,7 +141,7 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                 </div>
             )}
 
-            {/* MAIN CARD - Removed 'overflow-hidden' and added 'visible' so popups show */}
+            {/* MAIN CARD */}
             <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl transition-all duration-300 mb-8 relative z-0">
 
                 {isRepost && (
@@ -179,16 +185,54 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                             </div>
                         </div>
                     ) : (
-                        <p className="text-slate-700 whitespace-pre-wrap">{displayPost.description}</p>
+                        <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{displayPost.description}</p>
                     )}
+
+                    {/* --- RICH ROADMAP ATTACHMENT CARD --- */}
+                    {linkedPlan && (
+                        <div
+                            onClick={() => navigate(`/plans/${linkedPlan.id}`)}
+                            className="mt-4 border border-slate-200 rounded-xl overflow-hidden cursor-pointer hover:shadow-md transition-shadow group bg-slate-50"
+                        >
+                            <div className="h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+                            <div className="p-4 flex items-center justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded">
+                                            {linkedPlan.category || 'Roadmap'}
+                                        </span>
+                                        <span className="text-xs text-slate-400">
+                                            {linkedPlan.difficulty}
+                                        </span>
+                                    </div>
+                                    <h3 className="font-bold text-slate-800 text-lg group-hover:text-indigo-700 transition-colors">
+                                        {linkedPlan.title}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 line-clamp-1 mt-1">
+                                        {linkedPlan.description}
+                                    </p>
+                                </div>
+                                <div className="text-slate-300 group-hover:text-indigo-500 transition-colors transform group-hover:translate-x-1 duration-200">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* ------------------------------------ */}
+
                 </div>
 
+                {/* MEDIA GRID */}
                 {mediaUrls.length > 0 && (
                     <div className={`w-full cursor-pointer ${mediaUrls.length > 1 ? 'grid grid-cols-2 gap-1 h-80' : ''}`}>
                         {mediaUrls.slice(0, 3).map((url, idx) => {
                             const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
                             return (
-                                <div key={idx} className="relative w-full h-full bg-black overflow-hidden group" onClick={() => handleMediaClick(url, idx)}>
+                                <div
+                                    key={idx}
+                                    className="relative w-full h-full bg-black overflow-hidden group"
+                                    onClick={() => handleMediaClick(url, idx)}
+                                >
                                     {isVideo ? (
                                         <>
                                             <video src={url} className="w-full h-full object-cover opacity-90" />
@@ -208,15 +252,12 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
 
                 <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between relative z-10">
                     <div className="flex gap-4">
-                        {/* REACTION BUTTON CONTAINER */}
                         <div className="relative group/reaction" onMouseEnter={() => setShowReactions(true)} onMouseLeave={() => setShowReactions(false)}>
-                            {/* POPUP IS HERE - HIGH Z-INDEX */}
                             {showReactions && (
                                 <div className="absolute bottom-full left-0 mb-2 z-50">
                                     <ReactionPopup onSelect={handleReaction} />
                                 </div>
                             )}
-
                             <button onClick={() => handleReaction(myReaction || 'LIKE')} className={`font-bold text-sm flex items-center gap-1 ${myReaction ? 'text-blue-600' : 'text-slate-500'}`}>
                                 {myReaction ? reactionIcons[myReaction] : '👍 Like'}
                                 <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">

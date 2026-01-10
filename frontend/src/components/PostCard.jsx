@@ -17,18 +17,13 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(post.description);
 
-    // --- GALLERY STATE (Index Tracking) ---
-    const [lightboxIndex, setLightboxIndex] = useState(null); // null = closed, number = open
+    // Gallery State
+    const [lightboxIndex, setLightboxIndex] = useState(null);
 
     // Derived Data
     const displayPost = post.originalPost || post;
     const isRepost = !!post.originalPost;
     const postUser = post.user || {};
-    const displayUser = displayPost.user || {};
-
-    // Get all media items (Images + Videos)
-    // For the Image Gallery, we usually filter out videos, but if your design mixes them, we can keep them.
-    // However, since Videos open a specific Player, this gallery is strictly for the Images in the post.
     const mediaUrls = displayPost.mediaUrls && displayPost.mediaUrls.length > 0
         ? displayPost.mediaUrls
         : (displayPost.imageUrl ? [displayPost.imageUrl] : []);
@@ -43,7 +38,6 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         setEditContent(post.description);
     }, [post, currentUser?.id]);
 
-    // Keyboard Navigation for Gallery
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (lightboxIndex === null) return;
@@ -93,19 +87,15 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         } catch (error) { alert("Failed to update."); }
     };
 
-    // --- MEDIA CLICK HANDLER ---
     const handleMediaClick = (url, index) => {
         const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
         if (isVideo) {
-            // Videos go to Shorts Player
             if (onOpenVideo) onOpenVideo();
         } else {
-            // Images go to Local Gallery
             setLightboxIndex(index);
         }
     };
 
-    // --- GALLERY NAVIGATION ---
     const handleNextImage = (e) => {
         e?.stopPropagation();
         setLightboxIndex((prev) => (prev + 1) % mediaUrls.length);
@@ -120,67 +110,36 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
 
     return (
         <>
-            {/* --- IMAGE GALLERY TILE (POP-OUT) --- */}
+            {/* GALLERY POP-OUT */}
             {lightboxIndex !== null && (
-                <div
-                    className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
-                    onClick={() => setLightboxIndex(null)}
-                >
-                    <div
-                        className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-scale-in border border-white/20"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* CLOSE BUTTON */}
-                        <button
-                            onClick={() => setLightboxIndex(null)}
-                            className="absolute top-3 right-3 z-20 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors backdrop-blur-md"
-                        >
+                <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setLightboxIndex(null)}>
+                    <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-scale-in border border-white/20" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setLightboxIndex(null)} className="absolute top-3 right-3 z-20 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors backdrop-blur-md">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-
-                        {/* NAVIGATION ARROWS (Only if > 1 image) */}
                         {mediaUrls.length > 1 && (
                             <>
-                                <button
-                                    onClick={handlePrevImage}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md transition-all"
-                                >
+                                <button onClick={handlePrevImage} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md transition-all">
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                                 </button>
-                                <button
-                                    onClick={handleNextImage}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md transition-all"
-                                >
+                                <button onClick={handleNextImage} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md transition-all">
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                                 </button>
                             </>
                         )}
-
-                        {/* IMAGE CONTAINER */}
                         <div className="bg-slate-100 flex items-center justify-center h-[80vh] w-full relative">
-                            {/* Display Current Image */}
-                            <img
-                                key={lightboxIndex} // Force re-render on switch for animation
-                                src={mediaUrls[lightboxIndex]}
-                                className="max-w-full max-h-full object-contain shadow-lg animate-fade-in"
-                                alt="Gallery view"
-                            />
-
-                            {/* Counter Indicator */}
-                            {mediaUrls.length > 1 && (
-                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md">
-                                    {lightboxIndex + 1} / {mediaUrls.length}
-                                </div>
-                            )}
+                            <img key={lightboxIndex} src={mediaUrls[lightboxIndex]} className="max-w-full max-h-full object-contain shadow-lg animate-fade-in" alt="Gallery" />
+                            {mediaUrls.length > 1 && <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md">{lightboxIndex + 1} / {mediaUrls.length}</div>}
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl transition-all duration-300 mb-8 overflow-hidden relative">
+            {/* MAIN CARD - Removed 'overflow-hidden' and added 'visible' so popups show */}
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl transition-all duration-300 mb-8 relative z-0">
 
                 {isRepost && (
-                    <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2 text-sm text-slate-500">
+                    <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2 text-sm text-slate-500 rounded-t-3xl">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                         <span className="font-bold text-slate-700">{postUser.username}</span> reposted
                     </div>
@@ -202,7 +161,7 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                                 </button>
                                 {isMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 z-10 overflow-hidden animate-fade-in-down">
+                                    <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-fade-in-down">
                                         <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50">Edit</button>
                                         <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50">Delete</button>
                                     </div>
@@ -224,17 +183,12 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                     )}
                 </div>
 
-                {/* MEDIA GRID */}
                 {mediaUrls.length > 0 && (
                     <div className={`w-full cursor-pointer ${mediaUrls.length > 1 ? 'grid grid-cols-2 gap-1 h-80' : ''}`}>
                         {mediaUrls.slice(0, 3).map((url, idx) => {
                             const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
                             return (
-                                <div
-                                    key={idx}
-                                    className="relative w-full h-full bg-black overflow-hidden group"
-                                    onClick={() => handleMediaClick(url, idx)} // Pass index for gallery
-                                >
+                                <div key={idx} className="relative w-full h-full bg-black overflow-hidden group" onClick={() => handleMediaClick(url, idx)}>
                                     {isVideo ? (
                                         <>
                                             <video src={url} className="w-full h-full object-cover opacity-90" />
@@ -252,12 +206,22 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                     </div>
                 )}
 
-                <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between relative z-10">
                     <div className="flex gap-4">
-                        <div className="relative" onMouseEnter={() => setShowReactions(true)} onMouseLeave={() => setShowReactions(false)}>
-                            {showReactions && <ReactionPopup onSelect={handleReaction} />}
-                            <button onClick={() => handleReaction(myReaction || 'LIKE')} className={`font-bold text-sm ${myReaction ? 'text-blue-600' : 'text-slate-500'}`}>
-                                {myReaction ? reactionIcons[myReaction] : '👍 Like'} ({Object.values(reactionCounts).reduce((a,b)=>a+b,0)})
+                        {/* REACTION BUTTON CONTAINER */}
+                        <div className="relative group/reaction" onMouseEnter={() => setShowReactions(true)} onMouseLeave={() => setShowReactions(false)}>
+                            {/* POPUP IS HERE - HIGH Z-INDEX */}
+                            {showReactions && (
+                                <div className="absolute bottom-full left-0 mb-2 z-50">
+                                    <ReactionPopup onSelect={handleReaction} />
+                                </div>
+                            )}
+
+                            <button onClick={() => handleReaction(myReaction || 'LIKE')} className={`font-bold text-sm flex items-center gap-1 ${myReaction ? 'text-blue-600' : 'text-slate-500'}`}>
+                                {myReaction ? reactionIcons[myReaction] : '👍 Like'}
+                                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">
+                                    {Object.values(reactionCounts).reduce((a,b)=>a+b,0)}
+                                </span>
                             </button>
                         </div>
                         <button onClick={() => setShowComments(!showComments)} className="font-bold text-sm text-slate-500">Comment ({post.comments?.length || 0})</button>

@@ -2,18 +2,20 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
-import ShortsViewer from '../components/ShortsViewer'; // <--- NEW IMPORT
+import ShortsViewer from '../components/ShortsViewer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/useAuth';
 
 const HomeFeed = () => {
+    const { user } = useAuth();
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isPosting, setIsPosting] = useState(false);
     const [newPost, setNewPost] = useState('');
 
     // LIGHTBOX / SHORTS STATE
-    const [viewerStartIndex, setViewerStartIndex] = useState(null); // If not null, viewer is open
+    const [isShortsOpen, setIsShortsOpen] = useState(false);
+    const [initialShortsId, setInitialShortsId] = useState(null);
 
     // FILE UPLOAD STATE
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -25,10 +27,25 @@ const HomeFeed = () => {
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef();
-    const { user } = useAuth();
 
-    // ... (Keep existing fetchPosts and createPost logic exactly as is) ...
-    // ... I will abbreviate standard logic to focus on the fix ...
+    // --- STRICT VIDEO CHECK HELPER ---
+    const isVideoUrl = (url) => {
+        if (!url) return false;
+        const lower = url.toLowerCase();
+        return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov');
+    };
+
+    const hasVideo = (post) => {
+        const p = post.originalPost || post;
+        const media = p.mediaUrls && p.mediaUrls.length > 0
+            ? p.mediaUrls
+            : (p.imageUrl ? [p.imageUrl] : []);
+
+        return media.some(url => isVideoUrl(url));
+    };
+
+    // --- CRITICAL: FILTER ONLY VIDEO POSTS FOR THE VIEWER ---
+    const videoPosts = posts.filter(p => hasVideo(p));
 
     useEffect(() => {
         setPosts([]);
@@ -56,7 +73,7 @@ const HomeFeed = () => {
             setHasMore(newPosts.length === 10);
             setError(null);
         } catch (error) {
-            console.error("Error fetching posts:", error);
+            console.error(error);
             setError("Failed to load feed.");
         } finally {
             setLoading(false);
@@ -74,7 +91,6 @@ const HomeFeed = () => {
         if (node) observer.current.observe(node);
     }, [loading, hasMore]);
 
-    // ... (Keep handleCreatePost, handleFileSelect, etc. exactly as is) ...
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length + selectedFiles.length > 3) { alert("Max 3 files."); return; }
@@ -99,49 +115,58 @@ const HomeFeed = () => {
             const res = await api.post(`/posts?userId=${user.id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             setPosts(prev => [res.data, ...prev]);
             setNewPost(''); setSelectedFiles([]); setPreviews([]);
+            if(fileInputRef.current) fileInputRef.current.value = '';
         } catch (e) { alert("Failed to post"); } finally { setIsPosting(false); }
     };
 
-    // --- NEW: LIGHTBOX HANDLER ---
-    const openShortsViewer = (postIndex) => {
-        setViewerStartIndex(postIndex);
-        document.body.style.overflow = 'hidden';
+    // --- VIEWER HANDLERS ---
+    const openShortsViewer = (postId) => {
+        // Double check: Only open if this post actually exists in our video list
+        if (videoPosts.some(p => p.id === postId)) {
+            setInitialShortsId(postId);
+            setIsShortsOpen(true);
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error("Attempted to open non-video post in Shorts Viewer");
+        }
     };
 
     const closeShortsViewer = () => {
-        setViewerStartIndex(null);
+        setIsShortsOpen(false);
+        setInitialShortsId(null);
         document.body.style.overflow = 'auto';
     };
 
     const handleUpdatePost = (postId, updatedData) => {
-        // Optimistic update of the background list when interaction happens in viewer
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...updatedData } : p));
     };
+
+    // Calculate index based on the VIDEO ONLY list
+    const shortsStartIndex = videoPosts.findIndex(p => p.id === initialShortsId);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <Navbar />
 
-            {/* SHORTS VIEWER OVERLAY */}
-            {viewerStartIndex !== null && (
+            {/* SHORTS VIEWER: Only renders if we have videos and a valid index */}
+            {isShortsOpen && shortsStartIndex !== -1 && (
                 <ShortsViewer
-                    posts={posts}
-                    startIndex={viewerStartIndex}
+                    posts={videoPosts}
+                    startIndex={shortsStartIndex}
                     onClose={closeShortsViewer}
                     onUpdatePost={handleUpdatePost}
                 />
             )}
 
             <main className="container mx-auto px-4 py-6 max-w-2xl">
-                {/* Create Post UI (Keep existing) */}
+                {/* Create Post UI */}
                 <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/50 p-6 mb-8">
-                    {/* ... (Same Create Post Form Code as before) ... */}
                     <form onSubmit={handleCreatePost} className="flex-1">
-                        <textarea className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-2xl" rows="3" placeholder={`What's on your mind?`} value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                        <textarea className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-2xl outline-none" rows="3" placeholder={`What's on your mind?`} value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                         {previews.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2">{previews.map((p,i) => <img key={i} src={p.url} className="aspect-square object-cover rounded-xl" />)}</div>}
                         <div className="flex justify-between items-center mt-4">
                             <button type="button" onClick={() => fileInputRef.current?.click()} className="text-slate-500 hover:text-indigo-600 font-bold text-xs uppercase">Media</button>
-                            <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                            <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleFileSelect} />
                             <button type="submit" disabled={isPosting} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold">{isPosting ? '...' : 'Post'}</button>
                         </div>
                     </form>
@@ -153,7 +178,8 @@ const HomeFeed = () => {
                         <div key={post.id} ref={index === posts.length - 1 ? lastPostRef : null}>
                             <PostCard
                                 post={post}
-                                onOpenViewer={() => openShortsViewer(index)} // <--- Pass Index to open viewer
+                                // Only pass the video handler if the post actually has a video
+                                onOpenVideo={hasVideo(post) ? () => openShortsViewer(post.id) : null}
                             />
                         </div>
                     ))}

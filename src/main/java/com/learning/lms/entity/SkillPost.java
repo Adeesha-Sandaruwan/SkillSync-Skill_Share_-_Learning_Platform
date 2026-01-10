@@ -28,12 +28,9 @@ public class SkillPost {
     @Column(length = 2000)
     private String description;
 
-    // --- FIX: Add this back so old posts don't break ---
     @Column(name = "image_url")
     private String imageUrl;
-    // ---------------------------------------------------
 
-    // New Multi-Media System
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "post_media", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "media_url")
@@ -46,6 +43,13 @@ public class SkillPost {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnoreProperties({"password", "posts", "followers", "following", "plans", "progressUpdates", "comments", "hibernateLazyInitializer", "handler"})
     private User user;
+
+    // --- NEW: LINK TO LEARNING PLAN (PROGRESS UPDATE) ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "learning_plan_id")
+    @JsonIgnoreProperties({"user", "steps", "hibernateLazyInitializer", "handler"})
+    private LearningPlan learningPlan;
+    // ----------------------------------------------------
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "post_reactions", joinColumns = @JoinColumn(name = "post_id"))

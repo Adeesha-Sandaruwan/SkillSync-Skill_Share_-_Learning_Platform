@@ -1,9 +1,11 @@
 package com.learning.lms.service;
 
+import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.entity.SkillPost;
 import com.learning.lms.entity.User;
 import com.learning.lms.enums.NotificationType;
 import com.learning.lms.enums.ReactionType;
+import com.learning.lms.repository.LearningPlanRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +31,7 @@ public class SkillPostService {
     private final SkillPostRepository postRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final LearningPlanRepository learningPlanRepository; // Inject Plan Repository
 
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -47,7 +49,7 @@ public class SkillPostService {
     }
 
     @Transactional
-    public SkillPost createPost(Long userId, String description, List<MultipartFile> mediaFiles, Long originalPostId) {
+    public SkillPost createPost(Long userId, String description, List<MultipartFile> mediaFiles, Long originalPostId, Long learningPlanId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -62,11 +64,16 @@ public class SkillPostService {
             post.setOriginalPost(original.getOriginalPost() != null ? original.getOriginalPost() : original);
         }
 
-        // 2. Handle Multiple Media Uploads
+        // 2. Handle Progress Update (Link to Plan)
+        if (learningPlanId != null) {
+            LearningPlan plan = learningPlanRepository.findById(learningPlanId)
+                    .orElseThrow(() -> new RuntimeException("Learning Plan not found"));
+            post.setLearningPlan(plan);
+        }
+
+        // 3. Handle Multiple Media Uploads
         if (mediaFiles != null && !mediaFiles.isEmpty()) {
-            if (mediaFiles.size() > 3) {
-                throw new RuntimeException("Maximum 3 media files allowed.");
-            }
+            if (mediaFiles.size() > 3) throw new RuntimeException("Maximum 3 media files allowed.");
 
             String uploadDir = "uploads";
             Path uploadPath = Paths.get(uploadDir);
@@ -77,12 +84,8 @@ public class SkillPostService {
                     if (!file.isEmpty()) {
                         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
                         Files.copy(file.getInputStream(), uploadPath.resolve(filename));
-
                         String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                                .path("/uploads/")
-                                .path(filename)
-                                .toUriString();
-
+                                .path("/uploads/").path(filename).toUriString();
                         post.getMediaUrls().add(fileUrl);
                     }
                 }
@@ -96,10 +99,8 @@ public class SkillPostService {
 
     @Transactional
     public SkillPost reactToPost(Long postId, Long userId, ReactionType type) {
-        SkillPost post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        SkillPost post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
         if (post.getReactions().containsKey(userId) && post.getReactions().get(userId) == type) {
             post.getReactions().remove(userId);

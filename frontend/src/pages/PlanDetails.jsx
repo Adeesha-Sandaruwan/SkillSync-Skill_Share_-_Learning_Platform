@@ -14,19 +14,26 @@ const PlanDetails = () => {
     const [loading, setLoading] = useState(true);
     const [isCloning, setIsCloning] = useState(false);
 
+    // --- SHARE PROGRESS STATE ---
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareText, setShareText] = useState("");
+    const [isSharing, setIsSharing] = useState(false);
+
+    const templates = [
+        "🚀 Just started a new journey!",
+        "✅ Just completed a major milestone!",
+        "🔥 Making great progress on this roadmap.",
+        "🆘 Stuck on this section, need help!",
+        "🎉 Just finished this entire roadmap!"
+    ];
+
     useEffect(() => {
         const fetchPlan = async () => {
             try {
-                // We need a specific endpoint for getting a single plan.
-                // Since we didn't explicitly create GET /plans/{id} in controller,
-                // we might need to filter from user plans or add it.
-                // Assuming we have it or filter from the list for now:
                 const res = await api.get(`/plans/${planId}`);
-                // Note: If this fails, we need to add @GetMapping("/plans/{id}") to backend
                 setPlan(res.data);
             } catch (error) {
-                // Fallback: fetch user plans and find it (temporary fix if endpoint missing)
-                console.warn("Direct fetch failed, trying fallback...", error);
+                console.warn("Direct fetch failed", error);
             } finally {
                 setLoading(false);
             }
@@ -38,18 +45,13 @@ const PlanDetails = () => {
 
     const handleToggleStep = async (stepId) => {
         if (!isOwner) return;
-
-        // Optimistic update
         const updatedSteps = plan.steps.map(s =>
             s.id === stepId ? { ...s, completed: !s.completed } : s
         );
         setPlan({ ...plan, steps: updatedSteps });
-
         try {
             await api.put(`/plans/steps/${stepId}/toggle`);
-        } catch (error) {
-            console.error("Failed to toggle step");
-        }
+        } catch (error) { console.error("Failed to toggle step"); }
     };
 
     const handleClone = async () => {
@@ -59,10 +61,33 @@ const PlanDetails = () => {
             await api.post(`/plans/${plan.id}/clone?userId=${currentUser.id}`);
             alert("Cloned successfully!");
             navigate(`/profile/${currentUser.id}`);
+        } catch (error) { alert("Failed to clone."); } finally { setIsCloning(false); }
+    };
+
+    // --- SHARE LOGIC ---
+    const openShareModal = () => {
+        setShareText(`🚀 Making progress on: ${plan.title}`);
+        setShowShareModal(true);
+    };
+
+    const handleSharePost = async () => {
+        setIsSharing(true);
+        try {
+            const formData = new FormData();
+            formData.append('description', shareText);
+            formData.append('learningPlanId', plan.id); // Bridge to Plan
+
+            await api.post(`/posts?userId=${currentUser.id}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            alert("Progress shared to feed!");
+            setShowShareModal(false);
         } catch (error) {
-            alert("Failed to clone.");
+            console.error(error);
+            alert("Failed to share progress.");
         } finally {
-            setIsCloning(false);
+            setIsSharing(false);
         }
     };
 
@@ -75,8 +100,52 @@ const PlanDetails = () => {
     return (
         <div className="min-h-screen bg-slate-50">
             <Navbar />
-            <main className="max-w-4xl mx-auto px-4 py-8">
 
+            {/* --- SHARE MODAL --- */}
+            {showShareModal && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-slate-800">Share Progress</h3>
+                            <button onClick={() => setShowShareModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* Templates */}
+                            <div className="flex flex-wrap gap-2">
+                                {templates.map((t, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setShareText(`${t} \n\nWORKING ON: ${plan.title}`)}
+                                        className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full font-bold hover:bg-indigo-100 transition-colors"
+                                    >
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <textarea
+                                className="w-full h-32 p-4 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                value={shareText}
+                                onChange={(e) => setShareText(e.target.value)}
+                            />
+
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => setShowShareModal(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
+                                <button
+                                    onClick={handleSharePost}
+                                    disabled={isSharing}
+                                    className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg"
+                                >
+                                    {isSharing ? 'Posting...' : 'Share to Feed'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <main className="max-w-4xl mx-auto px-4 py-8">
                 {/* Header Card */}
                 <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8">
                     <div className={`h-32 bg-gradient-to-r ${plan.isPublic ? 'from-blue-600 to-indigo-600' : 'from-slate-700 to-slate-800'} p-8 flex items-end`}>
@@ -92,15 +161,24 @@ const PlanDetails = () => {
                                 <p className="text-slate-600 text-lg leading-relaxed max-w-2xl">{plan.description}</p>
                             </div>
 
-                            {!isOwner && (
-                                <button
-                                    onClick={handleClone}
-                                    disabled={isCloning}
-                                    className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-transform active:scale-95"
-                                >
-                                    {isCloning ? 'Cloning...' : 'Clone Roadmap'}
-                                </button>
-                            )}
+                            <div className="flex gap-3">
+                                {isOwner ? (
+                                    <button
+                                        onClick={openShareModal}
+                                        className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition-transform active:scale-95 flex items-center gap-2"
+                                    >
+                                        <span>📢</span> Share Progress
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleClone}
+                                        disabled={isCloning}
+                                        className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-transform active:scale-95"
+                                    >
+                                        {isCloning ? 'Cloning...' : 'Clone Roadmap'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Progress Bar */}

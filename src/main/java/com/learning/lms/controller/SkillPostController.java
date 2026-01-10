@@ -40,15 +40,16 @@ public class SkillPostController {
         return ResponseEntity.ok(postService.getUserPosts(userId, page, size));
     }
 
-    // --- UPDATED FOR MULTI-FILE ---
+    // --- UPDATED: Accepts learningPlanId ---
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<SkillPost> createPost(
             @RequestParam Long userId,
             @RequestParam(required = false) String description,
-            @RequestParam(required = false) List<MultipartFile> media, // Changed from 'image' to 'media' list
-            @RequestParam(required = false) Long originalPostId
+            @RequestParam(required = false) List<MultipartFile> media,
+            @RequestParam(required = false) Long originalPostId,
+            @RequestParam(required = false) Long learningPlanId // <--- New Param
     ) {
-        return ResponseEntity.ok(postService.createPost(userId, description, media, originalPostId));
+        return ResponseEntity.ok(postService.createPost(userId, description, media, originalPostId, learningPlanId));
     }
 
     @PostMapping("/{postId}/react")

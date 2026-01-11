@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // Added useNavigate
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
@@ -8,12 +8,13 @@ import ProgressCard from '../components/ProgressCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EditProfileModal from '../components/EditProfileModal';
 import AddPortfolioModal from '../components/AddPortfolioModal';
+import ShortsViewer from '../components/ShortsViewer'; // <--- IMPORT THIS
 import { useAuth } from '../context/useAuth';
 
 const Profile = () => {
     const { userId } = useParams();
     const { user: currentUser } = useAuth();
-    const navigate = useNavigate(); // Hook for navigation
+    const navigate = useNavigate();
 
     // --- DATA STATES ---
     const [profileUser, setProfileUser] = useState(null);
@@ -44,16 +45,19 @@ const Profile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [modalType, setModalType] = useState(null);
 
+    // --- SHORTS VIEWER STATE ---
+    const [shortsIndex, setShortsIndex] = useState(null); // <--- NEW STATE
+
     // Follow States
     const [isFollowing, setIsFollowing] = useState(false);
     const [loadingFollow, setLoadingFollow] = useState(false);
 
-    // Progress Form States
+    // Progress Form
     const [newUpdate, setNewUpdate] = useState('');
     const [updateType, setUpdateType] = useState('LEARNING');
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
-    // --- FETCH USER INFO ---
+    // --- FETCH DATA ---
     const fetchProfileData = useCallback(async () => {
         if (!userId) return;
         try {
@@ -64,7 +68,7 @@ const Profile = () => {
             try {
                 const statsRes = await api.get(`/users/${userId}/stats`);
                 setStats(statsRes.data);
-            } catch (e) { console.warn("Stats failed", e); }
+            } catch (e) {}
 
             const fetchContent = async () => {
                 try {
@@ -76,7 +80,7 @@ const Profile = () => {
                     setUserPlans(plansRes.data);
                     setProgressUpdates(progressRes.data);
                     setPortfolio(portfolioRes.data);
-                } catch (e) { console.warn("Content partial fail", e); }
+                } catch (e) {}
             };
             await fetchContent();
 
@@ -84,10 +88,10 @@ const Profile = () => {
                 try {
                     const followRes = await api.get(`/users/${userId}/is-following?followerId=${currentUser.id}`);
                     setIsFollowing(followRes.data);
-                } catch (e) { }
+                } catch (e) {}
             }
         } catch (error) {
-            console.error("User profile load failed", error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -102,7 +106,7 @@ const Profile = () => {
             const newPosts = res.data;
             setPosts(prev => postsPage === 0 ? newPosts : [...prev, ...newPosts]);
             setHasMorePosts(newPosts.length === 10);
-        } catch (error) { console.error("Failed to load posts", error); }
+        } catch (error) { console.error(error); }
         finally { setLoadingPosts(false); }
     }, [userId, postsPage]);
 
@@ -164,12 +168,16 @@ const Profile = () => {
         setStats(p => ({...p, totalPlans: p.totalPlans - 1}));
     };
 
+    // --- UPDATE POST LOCAL STATE (Used by ShortsViewer to sync likes) ---
+    const handleUpdatePost = (postId, updatedPost) => {
+        setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+    };
+
     if (loading) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="flex justify-center h-[60vh] items-center"><LoadingSpinner variant="page"/></div></div>;
     if (!profileUser) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="text-center pt-20">User not found</div></div>;
 
     const isOwner = currentUser?.id === profileUser.id;
 
-    // Helper Components
     const TypeButton = ({ type, icon, label, color }) => (
         <button type="button" onClick={() => setUpdateType(type)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${updateType === type ? `${color} shadow-sm transform scale-105` : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
             <span>{icon}</span> {label}
@@ -182,7 +190,6 @@ const Profile = () => {
         'MASTER': { icon: '👑', label: 'Master', bg: 'bg-amber-100 text-amber-700' },
         'SOCIALITE': { icon: '💬', label: 'Socialite', bg: 'bg-purple-100 text-purple-700' },
     };
-
     const xpPercent = (profileUser.xp || 0) % 100;
 
     return (
@@ -271,52 +278,42 @@ const Profile = () => {
                         <div className="space-y-6">
                             {posts.length === 0 && !loadingPosts ? <EmptyState msg="No posts shared yet." /> :
                                 posts.map((post, idx) => {
-                                    if(posts.length === idx + 1) return <div ref={lastPostRef} key={post.id}><PostCard post={post}/></div>;
-                                    return <PostCard key={post.id} post={post} />;
+                                    // --- PASS onOpenVideo HERE ---
+                                    const card = (
+                                        <PostCard
+                                            key={post.id}
+                                            post={post}
+                                            onOpenVideo={() => setShortsIndex(idx)} // <--- TRIGGERS SHORTS VIEWER
+                                        />
+                                    );
+                                    if(posts.length === idx + 1) return <div ref={lastPostRef} key={post.id}>{card}</div>;
+                                    return card;
                                 })
                             }
                             {loadingPosts && <div className="text-center py-4"><LoadingSpinner/></div>}
                         </div>
                     )}
 
-                    {/* --- ENHANCED PLANS TAB --- */}
                     {activeTab === 'plans' && (
                         <div>
-                            {/* Create Plan Button in Header (Optional but good UX) */}
                             {isOwner && userPlans.length > 0 && (
                                 <div className="flex justify-end mb-4">
-                                    <button onClick={() => navigate('/create-plan')} className="text-indigo-600 font-bold text-sm hover:underline flex items-center gap-1">
-                                        + New Roadmap
-                                    </button>
+                                    <button onClick={() => navigate('/create-plan')} className="text-indigo-600 font-bold text-sm hover:underline flex items-center gap-1">+ New Roadmap</button>
                                 </div>
                             )}
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* 1. Create New Card (First Item) */}
                                 {isOwner && (
-                                    <div
-                                        onClick={() => navigate('/create-plan')}
-                                        className="border-2 border-dashed border-slate-300 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group min-h-[200px]"
-                                    >
-                                        <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                            <span className="text-2xl font-bold">+</span>
-                                        </div>
+                                    <div onClick={() => navigate('/create-plan')} className="border-2 border-dashed border-slate-300 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group min-h-[200px]">
+                                        <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><span className="text-2xl font-bold">+</span></div>
                                         <h3 className="font-bold text-slate-800">Create New Roadmap</h3>
                                         <p className="text-sm text-slate-500 mt-1">Share your knowledge path</p>
                                     </div>
                                 )}
-
-                                {/* 2. Existing Plans */}
-                                {userPlans.map(plan => (
-                                    <PlanCard key={plan.id} plan={plan} isOwner={isOwner} onDelete={handleDeletePlan} />
-                                ))}
-
-                                {/* 3. Empty State (If no plans and not owner) */}
+                                {userPlans.map(plan => <PlanCard key={plan.id} plan={plan} isOwner={isOwner} onDelete={handleDeletePlan} />)}
                                 {!isOwner && userPlans.length === 0 && <EmptyState msg="No active roadmaps." />}
                             </div>
                         </div>
                     )}
-                    {/* --------------------------- */}
 
                     {activeTab === 'progress' && (
                         <div className="space-y-6">
@@ -331,9 +328,7 @@ const Profile = () => {
                                                 <TypeButton type="BLOCKER" icon="🚧" label="Blocker" color="bg-red-100 text-red-700 ring-2 ring-red-500/20" />
                                                 <TypeButton type="RESOURCE" icon="📚" label="Resource" color="bg-purple-100 text-purple-700 ring-2 ring-purple-500/20" />
                                             </div>
-                                            <button disabled={submittingUpdate || !newUpdate.trim()} className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-800 transition-colors disabled:opacity-50 text-sm shadow-lg">
-                                                {submittingUpdate ? 'Posting...' : 'Post Update'}
-                                            </button>
+                                            <button disabled={submittingUpdate || !newUpdate.trim()} className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-800 transition-colors disabled:opacity-50 text-sm shadow-lg">{submittingUpdate ? 'Posting...' : 'Post Update'}</button>
                                         </div>
                                     </form>
                                 </div>
@@ -364,13 +359,22 @@ const Profile = () => {
                 </div>
             </main>
 
+            {/* --- RENDER SHORTS VIEWER OVERLAY --- */}
+            {shortsIndex !== null && (
+                <ShortsViewer
+                    posts={posts}
+                    startIndex={shortsIndex}
+                    onClose={() => setShortsIndex(null)}
+                    onUpdatePost={handleUpdatePost}
+                />
+            )}
+
             {isEditing && <EditProfileModal user={profileUser} onClose={() => setIsEditing(false)} onUpdate={(u) => setProfileUser(u)} />}
             {modalType && <AddPortfolioModal userId={currentUser.id} type={modalType} onClose={() => setModalType(null)} onSuccess={refreshPortfolio} />}
         </div>
     );
 };
 
-// Enhanced Empty State with Button Support
 const EmptyState = ({ msg }) => (
     <div className="text-center py-16 bg-white/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300">
         <div className="text-4xl mb-3 opacity-30">📂</div>

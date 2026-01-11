@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections; // <--- Needed for shuffle
 import java.util.List;
 
 @Service
@@ -123,7 +124,6 @@ public class UserService {
         int newLevel = (user.getXp() / 100) + 1;
         if (newLevel > user.getLevel()) {
             user.setLevel(newLevel);
-            // Optional: Send notification for Level Up here
         }
 
         // Logic: Badge Awards
@@ -142,5 +142,13 @@ public class UserService {
 
     public List<User> getLeaderboard() {
         return userRepository.findAll(Sort.by("xp").descending());
+    }
+
+    // --- THIS IS THE MISSING METHOD ---
+    public List<User> getSuggestions(Long currentUserId) {
+        // Fetch 20, shuffle, return 5
+        List<User> candidates = userRepository.findSuggestedUsers(currentUserId, PageRequest.of(0, 20));
+        Collections.shuffle(candidates);
+        return candidates.stream().limit(5).toList();
     }
 }

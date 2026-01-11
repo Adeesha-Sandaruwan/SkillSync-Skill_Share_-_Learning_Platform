@@ -3,16 +3,13 @@ package com.learning.lms.controller;
 import com.learning.lms.dto.UserStatsResponse;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
-import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
-import com.learning.lms.service.SkillPostService;
 import com.learning.lms.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -22,8 +19,6 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
-    private final SkillPostRepository skillPostRepository;
-    private final SkillPostService skillPostService;
 
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserProfile(@PathVariable Long id) {
@@ -69,24 +64,12 @@ public class UserController {
         return ResponseEntity.ok(topUsers);
     }
 
-    // --- PROFILE TABS ENDPOINTS ---
-
-    // ❌ DELETED getUserPlans() TO FIX CRASH (LearningPlanController handles it) ❌
-
-    @GetMapping("/{userId}/progress")
-    public ResponseEntity<List<com.learning.lms.entity.SkillPost>> getUserProgress(@PathVariable Long userId) {
-        return ResponseEntity.ok(skillPostRepository.findProgressUpdatesByUserId(userId));
-    }
-
-    @PostMapping("/{userId}/progress")
-    public ResponseEntity<com.learning.lms.entity.SkillPost> createQuickUpdate(
-            @PathVariable Long userId, @RequestBody Map<String, String> payload) {
-        return ResponseEntity.ok(skillPostService.createSimplePost(userId, payload.get("content"), payload.get("type")));
-    }
-
-    // --- NEW: Suggestion Endpoint (For Right Sidebar) ---
+    // --- NEW: Suggestion Endpoint (Who to Follow) ---
     @GetMapping("/{userId}/suggestions")
     public ResponseEntity<List<User>> getSuggestions(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getSuggestions(userId));
     }
+
+    // NOTE: 'getUserPlans' and 'getUserProgress' are removed from here
+    // because they are handled by LearningPlanController and ProgressUpdateController
 }

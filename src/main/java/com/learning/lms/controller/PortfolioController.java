@@ -17,7 +17,7 @@ public class PortfolioController {
     private final SkillRepository skillRepository;
     private final UserRepository userRepository;
 
-    // --- GET ALL ---
+    // --- GET ALL PORTFOLIO ITEMS ---
     @GetMapping("/{userId}")
     public ResponseEntity<Map<String, Object>> getPortfolio(@PathVariable Long userId) {
         return ResponseEntity.ok(Map.of(
@@ -28,25 +28,28 @@ public class PortfolioController {
     }
 
     // --- ADD ITEMS ---
-    @PostMapping("/{userId}/experience")
+    @PostMapping("/experience/{userId}")
     public ResponseEntity<Experience> addExp(@PathVariable Long userId, @RequestBody Experience req) {
-        req.setUser(userRepository.findById(userId).orElseThrow());
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        req.setUser(user);
         return ResponseEntity.ok(experienceRepository.save(req));
     }
 
-    @PostMapping("/{userId}/certificate")
+    @PostMapping("/certificate/{userId}")
     public ResponseEntity<Certificate> addCert(@PathVariable Long userId, @RequestBody Certificate req) {
-        req.setUser(userRepository.findById(userId).orElseThrow());
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        req.setUser(user);
         return ResponseEntity.ok(certificateRepository.save(req));
     }
 
-    @PostMapping("/{userId}/skill")
+    @PostMapping("/skill/{userId}") // Front-end might send to /skill or /skills, adjusting for singular
     public ResponseEntity<Skill> addSkill(@PathVariable Long userId, @RequestBody Skill req) {
-        req.setUser(userRepository.findById(userId).orElseThrow());
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        req.setUser(user);
         return ResponseEntity.ok(skillRepository.save(req));
     }
 
-    // --- DELETE ---
+    // --- DELETE ITEMS ---
     @DeleteMapping("/experience/{id}")
     public void deleteExp(@PathVariable Long id) { experienceRepository.deleteById(id); }
 

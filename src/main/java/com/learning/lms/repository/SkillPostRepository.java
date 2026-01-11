@@ -11,24 +11,7 @@ import java.util.List;
 
 public interface SkillPostRepository extends JpaRepository<SkillPost, Long> {
 
-    // --- NEW: Paginated Methods (Used by Feed) ---
-
-    // Uses JOIN FETCH to prevent LazyInitializationException
-    @Query("SELECT DISTINCT p FROM SkillPost p " +
-            "LEFT JOIN FETCH p.user " +
-            "LEFT JOIN FETCH p.comments c " +
-            "LEFT JOIN FETCH c.user " +
-            "ORDER BY p.createdAt DESC")
-    Slice<SkillPost> findAllPosts(Pageable pageable);
-
-    @Query("SELECT DISTINCT p FROM SkillPost p " +
-            "LEFT JOIN FETCH p.user " +
-            "LEFT JOIN FETCH p.comments c " +
-            "LEFT JOIN FETCH c.user " +
-            "WHERE p.user.id = :userId " +
-            "ORDER BY p.createdAt DESC")
-    Slice<SkillPost> findByUserId(Long userId, Pageable pageable);
-
+    // 1. Feed Query (Followed Users + Self)
     @Query("SELECT DISTINCT p FROM SkillPost p " +
             "LEFT JOIN FETCH p.user " +
             "LEFT JOIN FETCH p.comments c " +
@@ -39,12 +22,31 @@ public interface SkillPostRepository extends JpaRepository<SkillPost, Long> {
             "ORDER BY p.createdAt DESC")
     Slice<SkillPost> findPostsByFollowedUsers(@Param("userId") Long userId, Pageable pageable);
 
-    // --- LEGACY: List Methods (Restored for UserService compatibility) ---
+    // 2. Global Feed
+    @Query("SELECT DISTINCT p FROM SkillPost p " +
+            "LEFT JOIN FETCH p.user " +
+            "LEFT JOIN FETCH p.comments c " +
+            "LEFT JOIN FETCH c.user " +
+            "ORDER BY p.createdAt DESC")
+    Slice<SkillPost> findAllPosts(Pageable pageable);
 
-    // Kept to fix the UserService compilation error
-    List<SkillPost> findByUserIdOrderByCreatedAtDesc(Long userId);
+    // 3. Profile Posts Tab
+    @Query("SELECT DISTINCT p FROM SkillPost p " +
+            "LEFT JOIN FETCH p.user " +
+            "LEFT JOIN FETCH p.comments c " +
+            "LEFT JOIN FETCH c.user " +
+            "WHERE p.user.id = :userId " +
+            "ORDER BY p.createdAt DESC")
+    Slice<SkillPost> findByUserId(Long userId, Pageable pageable);
 
-    List<SkillPost> findAllByOrderByCreatedAtDesc();
+    // 4. Profile Progress Tab (List)
+    // Fetches posts that are either linked to a plan OR have a special tag like [MILESTONE]
+    @Query("SELECT p FROM SkillPost p WHERE p.user.id = :userId AND " +
+            "(p.learningPlan IS NOT NULL OR p.description LIKE '[%]') " +
+            "ORDER BY p.createdAt DESC")
+    List<SkillPost> findProgressUpdatesByUserId(Long userId);
 
+    // Legacy support
     int countByUserId(Long userId);
+    List<SkillPost> findByUserIdOrderByCreatedAtDesc(Long userId);
 }

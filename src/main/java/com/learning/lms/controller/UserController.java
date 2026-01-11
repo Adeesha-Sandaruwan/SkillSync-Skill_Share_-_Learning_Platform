@@ -3,13 +3,17 @@ package com.learning.lms.controller;
 import com.learning.lms.dto.UserStatsResponse;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
+import com.learning.lms.repository.LearningPlanRepository;
+import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
+import com.learning.lms.service.SkillPostService;
 import com.learning.lms.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -19,6 +23,9 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
+    private final LearningPlanRepository learningPlanRepository;
+    private final SkillPostRepository skillPostRepository;
+    private final SkillPostService skillPostService;
 
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserProfile(@PathVariable Long id) {
@@ -27,9 +34,7 @@ public class UserController {
 
     @GetMapping("/search")
     public ResponseEntity<List<User>> searchUsers(@RequestParam("q") String query) {
-        if (query == null || query.trim().length() < 2) {
-            return ResponseEntity.ok(List.of());
-        }
+        if (query == null || query.trim().length() < 2) return ResponseEntity.ok(List.of());
         return ResponseEntity.ok(userRepository.searchUsers(query));
     }
 
@@ -60,11 +65,27 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserStats(userId));
     }
 
-    // --- GAMIFICATION ENDPOINT ---
     @GetMapping("/leaderboard")
     public ResponseEntity<List<User>> getLeaderboard() {
-        // Return top 10 users for efficiency
         List<User> topUsers = userService.getLeaderboard().stream().limit(10).collect(Collectors.toList());
         return ResponseEntity.ok(topUsers);
+    }
+
+    // --- PROFILE TABS ENDPOINTS ---
+
+    @GetMapping("/{userId}/plans")
+    public ResponseEntity<List<com.learning.lms.entity.LearningPlan>> getUserPlans(@PathVariable Long userId) {
+        return ResponseEntity.ok(learningPlanRepository.findByUserId(userId));
+    }
+
+    @GetMapping("/{userId}/progress")
+    public ResponseEntity<List<com.learning.lms.entity.SkillPost>> getUserProgress(@PathVariable Long userId) {
+        return ResponseEntity.ok(skillPostRepository.findProgressUpdatesByUserId(userId));
+    }
+
+    @PostMapping("/{userId}/progress")
+    public ResponseEntity<com.learning.lms.entity.SkillPost> createQuickUpdate(
+            @PathVariable Long userId, @RequestBody Map<String, String> payload) {
+        return ResponseEntity.ok(skillPostService.createSimplePost(userId, payload.get("content"), payload.get("type")));
     }
 }

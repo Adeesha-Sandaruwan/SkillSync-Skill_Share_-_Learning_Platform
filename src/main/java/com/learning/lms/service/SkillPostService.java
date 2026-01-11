@@ -31,7 +31,7 @@ public class SkillPostService {
     private final SkillPostRepository postRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
-    private final LearningPlanRepository learningPlanRepository; // Inject Plan Repository
+    private final LearningPlanRepository learningPlanRepository;
 
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -48,60 +48,61 @@ public class SkillPostService {
         return postRepository.findByUserId(userId, pageable).getContent();
     }
 
+    // --- NEW: CREATE SIMPLE UPDATE (For Profile Progress Tab) ---
+    @Transactional
+    public SkillPost createSimplePost(Long userId, String content, String type) {
+        User user = userRepository.findById(userId).orElseThrow();
+        SkillPost post = new SkillPost();
+
+        // We prepend the Type (e.g., [MILESTONE]) to the description
+        // This allows us to filter them easily later without changing DB schema
+        String formattedContent = type != null ? "[" + type + "] " + content : content;
+
+        post.setDescription(formattedContent);
+        post.setUser(user);
+        return postRepository.save(post);
+    }
+    // ------------------------------------------------------------
+
     @Transactional
     public SkillPost createPost(Long userId, String description, List<MultipartFile> mediaFiles, Long originalPostId, Long learningPlanId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         SkillPost post = new SkillPost();
         post.setDescription(description != null ? description : "");
         post.setUser(user);
 
-        // 1. Handle Repost
         if (originalPostId != null) {
-            SkillPost original = postRepository.findById(originalPostId)
-                    .orElseThrow(() -> new RuntimeException("Original post not found"));
+            SkillPost original = postRepository.findById(originalPostId).orElseThrow();
             post.setOriginalPost(original.getOriginalPost() != null ? original.getOriginalPost() : original);
         }
 
-        // 2. Handle Progress Update (Link to Plan)
         if (learningPlanId != null) {
-            LearningPlan plan = learningPlanRepository.findById(learningPlanId)
-                    .orElseThrow(() -> new RuntimeException("Learning Plan not found"));
+            LearningPlan plan = learningPlanRepository.findById(learningPlanId).orElseThrow();
             post.setLearningPlan(plan);
         }
 
-        // 3. Handle Multiple Media Uploads
         if (mediaFiles != null && !mediaFiles.isEmpty()) {
-            if (mediaFiles.size() > 3) throw new RuntimeException("Maximum 3 media files allowed.");
-
             String uploadDir = "uploads";
             Path uploadPath = Paths.get(uploadDir);
             try {
                 if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
-
                 for (MultipartFile file : mediaFiles) {
                     if (!file.isEmpty()) {
                         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
                         Files.copy(file.getInputStream(), uploadPath.resolve(filename));
-                        String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                                .path("/uploads/").path(filename).toUriString();
+                        String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path("/uploads/").path(filename).toUriString();
                         post.getMediaUrls().add(fileUrl);
                     }
                 }
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to upload media");
-            }
+            } catch (IOException e) { throw new RuntimeException("Failed to upload media"); }
         }
-
         return postRepository.save(post);
     }
 
     @Transactional
     public SkillPost reactToPost(Long postId, Long userId, ReactionType type) {
-        SkillPost post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-
+        SkillPost post = postRepository.findById(postId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow();
         if (post.getReactions().containsKey(userId) && post.getReactions().get(userId) == type) {
             post.getReactions().remove(userId);
         } else {
@@ -114,9 +115,7 @@ public class SkillPostService {
     }
 
     @Transactional
-    public void deletePost(Long postId) {
-        postRepository.deleteById(postId);
-    }
+    public void deletePost(Long postId) { postRepository.deleteById(postId); }
 
     @Transactional
     public SkillPost updatePost(Long postId, String desc) {

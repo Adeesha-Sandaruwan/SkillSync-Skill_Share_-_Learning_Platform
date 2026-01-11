@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import PlanCard from '../components/PlanCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getPublicPlans } from '../services/api';
 
 const Explore = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const queryFromUrl = searchParams.get('q') || '';
+
     const [plans, setPlans] = useState([]);
     const [filteredPlans, setFilteredPlans] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Filters
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(queryFromUrl);
     const [difficulty, setDifficulty] = useState('All');
 
+    // 1. Fetch Plans Once
     useEffect(() => {
         const fetchPlans = async () => {
             try {
@@ -28,11 +33,20 @@ const Explore = () => {
         fetchPlans();
     }, []);
 
+    // 2. Sync Local State with URL
+    useEffect(() => {
+        setSearch(queryFromUrl);
+    }, [queryFromUrl]);
+
+    // 3. Filtering Logic (Runs when search, difficulty, or plans change)
     useEffect(() => {
         let result = plans;
 
         if (search) {
-            result = result.filter(p => p.title.toLowerCase().includes(search.toLowerCase()));
+            result = result.filter(p =>
+                p.title.toLowerCase().includes(search.toLowerCase()) ||
+                p.description?.toLowerCase().includes(search.toLowerCase())
+            );
         }
 
         if (difficulty !== 'All') {
@@ -42,35 +56,49 @@ const Explore = () => {
         setFilteredPlans(result);
     }, [search, difficulty, plans]);
 
+    // Update URL when typing (Debounced slightly by UI behavior, good enough for now)
+    const handleSearchChange = (e) => {
+        const val = e.target.value;
+        setSearch(val);
+        setSearchParams(val ? { q: val } : {});
+    };
+
     return (
         <div className="min-h-screen bg-slate-50">
             <Navbar />
 
-            {/* Header / Search Section */}
-            <div className="bg-white border-b border-slate-200 sticky top-16 z-30">
-                <div className="max-w-6xl mx-auto px-4 py-4">
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                        <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                            <span className="text-2xl">🌍</span> Explore Roadmaps
-                        </h1>
+            {/* Hero / Filter Section */}
+            <div className="bg-white border-b border-slate-200 sticky top-16 z-30 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 py-6">
+                    <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
+                        <div>
+                            <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2 mb-1">
+                                <span className="text-3xl">🌍</span> Explore Roadmaps
+                            </h1>
+                            <p className="text-slate-500 text-sm font-medium">Discover learning paths created by the community.</p>
+                        </div>
 
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <input
-                                type="text"
-                                placeholder="Search topic..."
-                                className="px-4 py-2 bg-slate-100 rounded-lg border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64 font-medium"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
+                        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search topic..."
+                                    className="pl-10 pr-4 py-2.5 bg-slate-100 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-64 font-bold text-slate-700 transition-all"
+                                    value={search}
+                                    onChange={handleSearchChange}
+                                />
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                            </div>
+
                             <select
-                                className="px-4 py-2 bg-slate-100 rounded-lg font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="px-4 py-2.5 bg-slate-100 rounded-xl font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-200 transition-colors"
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
                             >
-                                <option value="All">All Levels</option>
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
+                                <option value="All">⚡ All Levels</option>
+                                <option value="Beginner">🌱 Beginner</option>
+                                <option value="Intermediate">🚀 Intermediate</option>
+                                <option value="Advanced">🔥 Advanced</option>
                             </select>
                         </div>
                     </div>
@@ -78,20 +106,27 @@ const Explore = () => {
             </div>
 
             {/* Grid Content */}
-            <main className="max-w-6xl mx-auto px-4 py-8">
+            <main className="max-w-7xl mx-auto px-4 py-8 min-h-[60vh]">
                 {loading ? (
-                    <div className="flex justify-center pt-20"><LoadingSpinner /></div>
+                    <div className="flex justify-center pt-32"><LoadingSpinner /></div>
                 ) : filteredPlans.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in-up">
                         {filteredPlans.map(plan => (
-                            <PlanCard key={plan.id} plan={plan} isOwner={false} />
+                            <div key={plan.id} className="transform transition-all hover:-translate-y-1">
+                                <PlanCard plan={plan} isOwner={false} />
+                            </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-20">
-                        <div className="text-6xl mb-4">🔭</div>
-                        <h3 className="text-xl font-bold text-slate-700">No roadmaps found.</h3>
-                        <p className="text-slate-500">Try adjusting your filters or be the first to create one!</p>
+                    <div className="text-center py-32 bg-white/50 rounded-3xl border border-dashed border-slate-300 mx-auto max-w-2xl mt-10">
+                        <div className="text-6xl mb-4 grayscale opacity-50">🔭</div>
+                        <h3 className="text-xl font-bold text-slate-700 mb-2">No roadmaps found.</h3>
+                        <p className="text-slate-500 max-w-md mx-auto">
+                            We couldn't find any plans matching "{search}". Try a different keyword or filter.
+                        </p>
+                        <button onClick={() => { setSearch(''); setDifficulty('All'); setSearchParams({}); }} className="mt-6 text-indigo-600 font-bold hover:underline">
+                            Clear Filters
+                        </button>
                     </div>
                 )}
             </main>

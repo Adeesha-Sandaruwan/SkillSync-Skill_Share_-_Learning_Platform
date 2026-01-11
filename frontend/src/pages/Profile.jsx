@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // Added useNavigate
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
@@ -13,6 +13,7 @@ import { useAuth } from '../context/useAuth';
 const Profile = () => {
     const { userId } = useParams();
     const { user: currentUser } = useAuth();
+    const navigate = useNavigate(); // Hook for navigation
 
     // --- DATA STATES ---
     const [profileUser, setProfileUser] = useState(null);
@@ -52,13 +53,11 @@ const Profile = () => {
     const [updateType, setUpdateType] = useState('LEARNING');
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
-    // --- FETCH USER INFO (Initial Load) ---
+    // --- FETCH USER INFO ---
     const fetchProfileData = useCallback(async () => {
         if (!userId) return;
-
         try {
             setLoading(true);
-
             const userRes = await api.get(`/users/${userId}`);
             setProfileUser(userRes.data);
 
@@ -67,7 +66,6 @@ const Profile = () => {
                 setStats(statsRes.data);
             } catch (e) { console.warn("Stats failed", e); }
 
-            // Other tabs data (fetched once for now)
             const fetchContent = async () => {
                 try {
                     const [plansRes, progressRes, portfolioRes] = await Promise.all([
@@ -78,64 +76,44 @@ const Profile = () => {
                     setUserPlans(plansRes.data);
                     setProgressUpdates(progressRes.data);
                     setPortfolio(portfolioRes.data);
-                } catch (e) { console.warn("Content load partial fail", e); }
+                } catch (e) { console.warn("Content partial fail", e); }
             };
-
             await fetchContent();
 
-            // Follow Check
             if (currentUser && currentUser.id && String(currentUser.id) !== String(userId)) {
                 try {
                     const followRes = await api.get(`/users/${userId}/is-following?followerId=${currentUser.id}`);
                     setIsFollowing(followRes.data);
-                } catch (e) { console.warn("Follow check failed", e); }
+                } catch (e) { }
             }
-
         } catch (error) {
-            console.error("Critical: User profile could not be loaded", error);
+            console.error("User profile load failed", error);
         } finally {
             setLoading(false);
         }
     }, [userId, currentUser]);
 
-    // --- FETCH PAGINATED POSTS ---
+    // --- FETCH POSTS ---
     const fetchUserPosts = useCallback(async () => {
         if (!userId) return;
         setLoadingPosts(true);
         try {
             const res = await api.get(`/posts/user/${userId}?page=${postsPage}&size=10`);
             const newPosts = res.data;
-
-            setPosts(prev => {
-                if (postsPage === 0) return newPosts;
-                return [...prev, ...newPosts];
-            });
+            setPosts(prev => postsPage === 0 ? newPosts : [...prev, ...newPosts]);
             setHasMorePosts(newPosts.length === 10);
-        } catch (error) {
-            console.error("Failed to load user posts", error);
-        } finally {
-            setLoadingPosts(false);
-        }
+        } catch (error) { console.error("Failed to load posts", error); }
+        finally { setLoadingPosts(false); }
     }, [userId, postsPage]);
 
-    useEffect(() => {
-        fetchProfileData();
-    }, [fetchProfileData]);
+    useEffect(() => { fetchProfileData(); }, [fetchProfileData]);
+    useEffect(() => { if (activeTab === 'posts') fetchUserPosts(); }, [fetchUserPosts, activeTab]);
 
-    useEffect(() => {
-        if (activeTab === 'posts') {
-            fetchUserPosts();
-        }
-    }, [fetchUserPosts, activeTab]);
-
-    // Scroll Observer for Profile Posts
     const lastPostRef = useCallback(node => {
         if (loadingPosts) return;
         if (postsObserver.current) postsObserver.current.disconnect();
         postsObserver.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMorePosts) {
-                setPostsPage(prev => prev + 1);
-            }
+            if (entries[0].isIntersecting && hasMorePosts) setPostsPage(prev => prev + 1);
         });
         if (node) postsObserver.current.observe(node);
     }, [loadingPosts, hasMorePosts]);
@@ -147,10 +125,8 @@ const Profile = () => {
 
     const handleDeleteItem = async (type, id) => {
         if(!window.confirm("Delete this item?")) return;
-        try {
-            await api.delete(`/portfolio/${type}/${id}`);
-            refreshPortfolio();
-        } catch (error) { alert("Failed to delete"); }
+        try { await api.delete(`/portfolio/${type}/${id}`); refreshPortfolio(); }
+        catch (error) { alert("Failed to delete"); }
     };
 
     const handleFollowToggle = async () => {
@@ -175,10 +151,7 @@ const Profile = () => {
         if (!newUpdate.trim()) return;
         setSubmittingUpdate(true);
         try {
-            const response = await api.post(`/users/${currentUser.id}/progress`, {
-                content: newUpdate,
-                type: updateType
-            });
+            const response = await api.post(`/users/${currentUser.id}/progress`, { content: newUpdate, type: updateType });
             setProgressUpdates([response.data, ...progressUpdates]);
             setNewUpdate('');
             setUpdateType('LEARNING');
@@ -196,13 +169,13 @@ const Profile = () => {
 
     const isOwner = currentUser?.id === profileUser.id;
 
+    // Helper Components
     const TypeButton = ({ type, icon, label, color }) => (
         <button type="button" onClick={() => setUpdateType(type)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${updateType === type ? `${color} shadow-sm transform scale-105` : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
             <span>{icon}</span> {label}
         </button>
     );
 
-    // --- GAMIFICATION UTILS ---
     const badgeMap = {
         'NOVICE': { icon: '🌱', label: 'Novice', bg: 'bg-green-100 text-green-700' },
         'APPRENTICE': { icon: '⚒️', label: 'Apprentice', bg: 'bg-blue-100 text-blue-700' },
@@ -210,9 +183,7 @@ const Profile = () => {
         'SOCIALITE': { icon: '💬', label: 'Socialite', bg: 'bg-purple-100 text-purple-700' },
     };
 
-    // Calculate XP progress to next level (Assume 100 XP per level)
-    const currentLevelXp = (profileUser.xp || 0) % 100;
-    const xpPercent = currentLevelXp; // Since 100 is max
+    const xpPercent = (profileUser.xp || 0) % 100;
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -246,20 +217,18 @@ const Profile = () => {
                             )}
                         </div>
 
-                        {/* --- GAMIFICATION BAR --- */}
+                        {/* Gamification Bar */}
                         <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">Level {profileUser.level || 1}</span>
                                     <span className="text-xs text-slate-400 font-semibold">({profileUser.xp || 0} XP)</span>
                                 </div>
-                                <span className="text-xs font-bold text-indigo-600">{xpPercent}/100 XP to Lvl { (profileUser.level || 1) + 1}</span>
+                                <span className="text-xs font-bold text-indigo-600">{xpPercent}/100 XP to Lvl {(profileUser.level || 1) + 1}</span>
                             </div>
                             <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
                                 <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600" style={{ width: `${xpPercent}%` }}></div>
                             </div>
-
-                            {/* BADGES */}
                             {profileUser.badges && profileUser.badges.length > 0 && (
                                 <div className="flex gap-2 mt-4 flex-wrap">
                                     {profileUser.badges.map(b => (
@@ -270,7 +239,6 @@ const Profile = () => {
                                 </div>
                             )}
                         </div>
-                        {/* ------------------------ */}
 
                         {/* Stats UI */}
                         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 border-t border-slate-100 pt-6">
@@ -288,6 +256,7 @@ const Profile = () => {
                     </div>
                 </div>
 
+                {/* Tabs */}
                 <div className="mt-8 flex p-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
                     {['posts', 'plans', 'progress', 'portfolio'].map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[100px] py-3 text-sm font-bold rounded-lg transition-all ${activeTab === tab ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
@@ -297,6 +266,7 @@ const Profile = () => {
                 </div>
 
                 <div className="mt-8 animate-in fade-in duration-300">
+
                     {activeTab === 'posts' && (
                         <div className="space-y-6">
                             {posts.length === 0 && !loadingPosts ? <EmptyState msg="No posts shared yet." /> :
@@ -308,11 +278,46 @@ const Profile = () => {
                             {loadingPosts && <div className="text-center py-4"><LoadingSpinner/></div>}
                         </div>
                     )}
+
+                    {/* --- ENHANCED PLANS TAB --- */}
                     {activeTab === 'plans' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {userPlans.length === 0 ? <EmptyState msg="No active roadmaps." /> : userPlans.map(plan => <PlanCard key={plan.id} plan={plan} isOwner={isOwner} onDelete={handleDeletePlan} />)}
+                        <div>
+                            {/* Create Plan Button in Header (Optional but good UX) */}
+                            {isOwner && userPlans.length > 0 && (
+                                <div className="flex justify-end mb-4">
+                                    <button onClick={() => navigate('/create-plan')} className="text-indigo-600 font-bold text-sm hover:underline flex items-center gap-1">
+                                        + New Roadmap
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* 1. Create New Card (First Item) */}
+                                {isOwner && (
+                                    <div
+                                        onClick={() => navigate('/create-plan')}
+                                        className="border-2 border-dashed border-slate-300 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group min-h-[200px]"
+                                    >
+                                        <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                            <span className="text-2xl font-bold">+</span>
+                                        </div>
+                                        <h3 className="font-bold text-slate-800">Create New Roadmap</h3>
+                                        <p className="text-sm text-slate-500 mt-1">Share your knowledge path</p>
+                                    </div>
+                                )}
+
+                                {/* 2. Existing Plans */}
+                                {userPlans.map(plan => (
+                                    <PlanCard key={plan.id} plan={plan} isOwner={isOwner} onDelete={handleDeletePlan} />
+                                ))}
+
+                                {/* 3. Empty State (If no plans and not owner) */}
+                                {!isOwner && userPlans.length === 0 && <EmptyState msg="No active roadmaps." />}
+                            </div>
                         </div>
                     )}
+                    {/* --------------------------- */}
+
                     {activeTab === 'progress' && (
                         <div className="space-y-6">
                             {isOwner && (
@@ -336,16 +341,16 @@ const Profile = () => {
                             {progressUpdates.length === 0 ? <EmptyState msg="No progress updates yet." /> : progressUpdates.map(u => <ProgressCard key={u.id} update={u} />)}
                         </div>
                     )}
+
                     {activeTab === 'portfolio' && (
                         <div className="space-y-6">
-                            {/* Standard Portfolio UI */}
                             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-lg font-bold">💼 Experience</h3>
                                     {isOwner && <button onClick={() => setModalType('experience')} className="text-indigo-600 font-bold hover:bg-indigo-50 px-3 py-1 rounded-lg">+ Add</button>}
                                 </div>
                                 <div className="space-y-6">
-                                    {portfolio.experience.map(exp => (
+                                    {portfolio.experience.length === 0 ? <p className="text-slate-400 italic text-sm">No experience added.</p> : portfolio.experience.map(exp => (
                                         <div key={exp.id} className="relative pl-6 border-l-2 border-slate-100 group">
                                             {isOwner && <button onClick={() => handleDeleteItem('experience', exp.id)} className="absolute right-0 top-0 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100">✕</button>}
                                             <h4 className="font-bold text-slate-800">{exp.title}</h4>
@@ -360,15 +365,15 @@ const Profile = () => {
             </main>
 
             {isEditing && <EditProfileModal user={profileUser} onClose={() => setIsEditing(false)} onUpdate={(u) => setProfileUser(u)} />}
-            {modalType && (
-                <AddPortfolioModal userId={currentUser.id} type={modalType} onClose={() => setModalType(null)} onSuccess={refreshPortfolio} />
-            )}
+            {modalType && <AddPortfolioModal userId={currentUser.id} type={modalType} onClose={() => setModalType(null)} onSuccess={refreshPortfolio} />}
         </div>
     );
 };
 
+// Enhanced Empty State with Button Support
 const EmptyState = ({ msg }) => (
     <div className="text-center py-16 bg-white/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300">
+        <div className="text-4xl mb-3 opacity-30">📂</div>
         <p className="text-slate-400 font-medium">{msg}</p>
     </div>
 );

@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom'; // <--- Added Link import
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
 import ShortsViewer from '../components/ShortsViewer';
 import LoadingSpinner from '../components/LoadingSpinner';
+import SuggestionSidebar from '../components/SuggestionSidebar'; // <--- Added Sidebar import
 import { useAuth } from '../context/useAuth';
 
 const HomeFeed = () => {
@@ -22,7 +24,6 @@ const HomeFeed = () => {
     const [previews, setPreviews] = useState([]);
     const fileInputRef = useRef(null);
 
-    const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('global');
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
@@ -41,7 +42,6 @@ const HomeFeed = () => {
         return media.some(url => isVideoUrl(url));
     };
 
-    // Filter only videos for the Shorts Player
     const videoPosts = posts.filter(p => hasVideo(p));
 
     useEffect(() => {
@@ -68,10 +68,8 @@ const HomeFeed = () => {
                 return [...prev, ...uniqueNewPosts];
             });
             setHasMore(newPosts.length === 10);
-            setError(null);
         } catch (error) {
             console.error("Error fetching posts:", error);
-            setError("Failed to load feed.");
         } finally {
             setLoading(false);
         }
@@ -116,9 +114,7 @@ const HomeFeed = () => {
         } catch (e) { alert("Failed to post"); } finally { setIsPosting(false); }
     };
 
-    // --- NEW: DELETE HANDLER ---
     const handleDeletePost = (postId) => {
-        // Remove from the main list immediately
         setPosts(prev => prev.filter(p => p.id !== postId));
     };
 
@@ -143,7 +139,7 @@ const HomeFeed = () => {
     const shortsStartIndex = videoPosts.findIndex(p => p.id === initialShortsId);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="min-h-screen bg-slate-50">
             <Navbar />
 
             {isShortsOpen && shortsStartIndex !== -1 && (
@@ -155,31 +151,104 @@ const HomeFeed = () => {
                 />
             )}
 
-            <main className="container mx-auto px-4 py-6 max-w-2xl">
-                {/* Create Post UI */}
-                <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/50 p-6 mb-8">
-                    <form onSubmit={handleCreatePost} className="flex-1">
-                        <textarea className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-2xl outline-none" rows="3" placeholder={`What's on your mind?`} value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-                        {previews.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2">{previews.map((p,i) => <img key={i} src={p.url} className="aspect-square object-cover rounded-xl" />)}</div>}
-                        <div className="flex justify-between items-center mt-4">
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-slate-500 hover:text-indigo-600 font-bold text-xs uppercase">Media</button>
-                            <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleFileSelect} />
-                            <button type="submit" disabled={isPosting} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold">{isPosting ? '...' : 'Post'}</button>
-                        </div>
-                    </form>
-                </div>
+            <main className="container mx-auto px-4 py-6 max-w-7xl">
+                {/* --- 3-COLUMN HOLY GRAIL LAYOUT --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
-                <div className="space-y-6 pb-10">
-                    {posts.map((post, index) => (
-                        <div key={post.id} ref={index === posts.length - 1 ? lastPostRef : null}>
-                            <PostCard
-                                post={post}
-                                onOpenVideo={hasVideo(post) ? () => openShortsViewer(post.id) : null}
-                                onDeleteSuccess={() => handleDeletePost(post.id)} // <--- Pass Delete Handler
-                            />
+                    {/* 1. LEFT COLUMN: Mini Profile & Links (Hidden on mobile) */}
+                    <div className="hidden lg:block lg:col-span-1">
+                        <div className="sticky top-24 space-y-6">
+                            {/* Mini Profile Card */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center">
+                                <div className="relative w-20 h-20 mx-auto mb-3">
+                                    <img src={user?.avatarUrl} className="w-full h-full rounded-full object-cover border-2 border-indigo-50" />
+                                    <div className="absolute bottom-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                                        Lvl {user?.level || 1}
+                                    </div>
+                                </div>
+                                <h2 className="font-bold text-lg text-slate-800">{user?.username}</h2>
+                                <p className="text-xs text-slate-500 mb-4 line-clamp-1">{user?.bio || "Ready to learn!"}</p>
+
+                                <Link to={`/profile/${user?.id}`} className="block mt-4 w-full py-2 bg-slate-50 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-100 transition-colors">
+                                    View Profile
+                                </Link>
+                            </div>
+
+                            {/* Quick Navigation */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                <Link to="/leaderboard" className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors border-b border-slate-50">
+                                    <span className="text-xl">🏆</span>
+                                    <span className="font-bold text-slate-700 text-sm">Leaderboard</span>
+                                </Link>
+                                <Link to="/create-plan" className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors border-b border-slate-50">
+                                    <span className="text-xl">🗺️</span>
+                                    <span className="font-bold text-slate-700 text-sm">Create Roadmap</span>
+                                </Link>
+                                <Link to="/explore" className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
+                                    <span className="text-xl">🧭</span>
+                                    <span className="font-bold text-slate-700 text-sm">Explore</span>
+                                </Link>
+                            </div>
                         </div>
-                    ))}
-                    {loading && <div className="flex justify-center py-6"><LoadingSpinner /></div>}
+                    </div>
+
+                    {/* 2. CENTER COLUMN: The Feed */}
+                    <div className="lg:col-span-2">
+                        {/* Create Post UI */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6">
+                            <form onSubmit={handleCreatePost}>
+                                <div className="flex gap-3">
+                                    <img src={user?.avatarUrl} className="w-10 h-10 rounded-full object-cover hidden sm:block" />
+                                    <div className="flex-1">
+                                        <textarea className="w-full p-3 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none text-sm" rows="2" placeholder={`What are you learning today, ${user?.firstname || 'friend'}?`} value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+
+                                        {/* Image Previews */}
+                                        {previews.length > 0 && (
+                                            <div className="mt-3 grid grid-cols-3 gap-2">
+                                                {previews.map((p,i) => (
+                                                    <div key={i} className="relative group">
+                                                        <img src={p.url} className="aspect-square object-cover rounded-lg border border-slate-200" />
+                                                        <button type="button" onClick={() => { setPreviews(previews.filter((_, idx) => idx !== i)); setSelectedFiles(selectedFiles.filter((_, idx) => idx !== i)); }} className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-red-500">✕</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
+                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"><span>📷</span> Media</button>
+                                            <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleFileSelect} />
+                                            <button type="submit" disabled={isPosting || (!newPost.trim() && selectedFiles.length === 0)} className="bg-indigo-600 text-white px-6 py-1.5 rounded-lg font-bold text-xs hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-200">{isPosting ? 'Posting...' : 'Post'}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Feed Tabs */}
+                        <div className="flex border-b border-slate-200 mb-6 sticky top-16 bg-slate-50/95 backdrop-blur z-30 pt-2">
+                            <button onClick={() => setActiveTab('global')} className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'global' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>For You</button>
+                            <button onClick={() => setActiveTab('following')} className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'following' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Following</button>
+                        </div>
+
+                        {/* Posts List */}
+                        <div className="space-y-6 pb-20">
+                            {posts.map((post, index) => (
+                                <div key={post.id} ref={index === posts.length - 1 ? lastPostRef : null}>
+                                    <PostCard
+                                        post={post}
+                                        onOpenVideo={() => hasVideo(post) && openShortsViewer(post.id)}
+                                        onDeleteSuccess={() => handleDeletePost(post.id)}
+                                    />
+                                </div>
+                            ))}
+                            {loading && <div className="flex justify-center py-6"><LoadingSpinner /></div>}
+                        </div>
+                    </div>
+
+                    {/* 3. RIGHT COLUMN: Suggestions */}
+                    <div className="hidden lg:block lg:col-span-1">
+                        <SuggestionSidebar />
+                    </div>
                 </div>
             </main>
         </div>

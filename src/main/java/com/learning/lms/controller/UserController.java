@@ -3,7 +3,6 @@ package com.learning.lms.controller;
 import com.learning.lms.dto.UserStatsResponse;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
-import com.learning.lms.repository.LearningPlanRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import com.learning.lms.service.SkillPostService;
@@ -23,7 +22,6 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
-    private final LearningPlanRepository learningPlanRepository;
     private final SkillPostRepository skillPostRepository;
     private final SkillPostService skillPostService;
 
@@ -73,10 +71,7 @@ public class UserController {
 
     // --- PROFILE TABS ENDPOINTS ---
 
-    @GetMapping("/{userId}/plans")
-    public ResponseEntity<List<com.learning.lms.entity.LearningPlan>> getUserPlans(@PathVariable Long userId) {
-        return ResponseEntity.ok(learningPlanRepository.findByUserId(userId));
-    }
+    // ❌ DELETED getUserPlans() TO FIX CRASH (LearningPlanController handles it) ❌
 
     @GetMapping("/{userId}/progress")
     public ResponseEntity<List<com.learning.lms.entity.SkillPost>> getUserProgress(@PathVariable Long userId) {
@@ -87,5 +82,11 @@ public class UserController {
     public ResponseEntity<com.learning.lms.entity.SkillPost> createQuickUpdate(
             @PathVariable Long userId, @RequestBody Map<String, String> payload) {
         return ResponseEntity.ok(skillPostService.createSimplePost(userId, payload.get("content"), payload.get("type")));
+    }
+
+    // --- NEW: Suggestion Endpoint (For Right Sidebar) ---
+    @GetMapping("/{userId}/suggestions")
+    public ResponseEntity<List<User>> getSuggestions(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getSuggestions(userId));
     }
 }

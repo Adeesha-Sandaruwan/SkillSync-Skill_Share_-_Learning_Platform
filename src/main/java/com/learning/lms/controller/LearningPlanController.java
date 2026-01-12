@@ -16,9 +16,16 @@ public class LearningPlanController {
 
     private final LearningPlanService planService;
 
+    // Single Creation
     @PostMapping("/users/{userId}/plans")
     public ResponseEntity<LearningPlan> createPlan(@PathVariable Long userId, @Valid @RequestBody LearningPlanRequest request) {
         return ResponseEntity.ok(planService.createPlan(userId, request));
+    }
+
+    // Bulk Creation (The one you need for the JSON list)
+    @PostMapping("/users/{userId}/plans/bulk")
+    public ResponseEntity<List<LearningPlan>> createBulkPlans(@PathVariable Long userId, @RequestBody List<LearningPlanRequest> requests) {
+        return ResponseEntity.ok(planService.createBulkPlans(userId, requests));
     }
 
     @GetMapping("/users/{userId}/plans")
@@ -48,7 +55,6 @@ public class LearningPlanController {
         return ResponseEntity.ok().build();
     }
 
-    // --- UPDATED: SEARCH ENDPOINT ---
     @GetMapping("/plans/public")
     public ResponseEntity<List<LearningPlan>> getPublicPlans(
             @RequestParam(required = false) String q,

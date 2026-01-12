@@ -27,12 +27,17 @@ public class LearningPlan {
     private String category;
     private String difficulty; // Beginner, Intermediate, Advanced
 
-    // --- New Fields for Industry Level Features ---
     @Column(nullable = false)
-    private boolean isPublic = true; // Default to public for social sharing
+    private boolean isPublic = true;
 
-    private Long clonedFromId; // If this was copied from another user, store original ID here
-    // ----------------------------------------------
+    private Long clonedFromId;
+
+    // --- NEW: Added Tags Support ---
+    @ElementCollection
+    @CollectionTable(name = "plan_tags", joinColumns = @JoinColumn(name = "plan_id"))
+    @Column(name = "tag")
+    private List<String> tags = new ArrayList<>();
+    // -------------------------------
 
     private String topic;
     private String resources;

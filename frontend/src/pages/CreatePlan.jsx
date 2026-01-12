@@ -2,24 +2,28 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
+import { useAuth } from '../context/useAuth';
 
 const CreatePlan = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         category: 'Development',
         difficulty: 'Beginner',
+        targetDate: '', // Added targetDate support
         tags: ''
     });
 
     const [steps, setSteps] = useState([
-        { title: '', resourceUrl: '', duration: '' }
+        { title: '', resourceLink: '', estimatedTime: '' } // Matches PlanStepRequest DTO
     ]);
 
     const handleAddStep = () => {
-        setSteps([...steps, { title: '', resourceUrl: '', duration: '' }]);
+        setSteps([...steps, { title: '', resourceLink: '', estimatedTime: '' }]);
     };
 
     const handleRemoveStep = (index) => {
@@ -37,30 +41,28 @@ const CreatePlan = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.title || steps.some(s => !s.title)) {
-            alert("Please fill in all required fields.");
+            alert("Please fill in a Title and all Step Titles.");
             return;
         }
 
         setLoading(true);
         try {
-            // 1. Create the Plan
-            const planRes = await api.post('/plans', {
+            // --- FIX: Use the correct endpoint matching LearningPlanController ---
+            // POST /api/users/{userId}/plans
+            const payload = {
                 ...formData,
-                tags: formData.tags.split(',').map(t => t.trim())
-            });
+                tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
+                steps: steps // Send steps directly inside the plan request
+            };
 
-            const planId = planRes.data.id;
+            const res = await api.post(`/users/${user.id}/plans`, payload);
 
-            // 2. Add Steps to the Plan
-            // (Assuming your backend supports adding multiple steps or we loop)
-            await Promise.all(steps.map(step =>
-                api.post(`/plans/${planId}/steps`, step)
-            ));
+            // Navigate to the new plan
+            navigate(`/plans/${res.data.id}`);
 
-            navigate(`/plans/${planId}`);
         } catch (error) {
             console.error("Failed to create plan", error);
-            alert("Failed to create roadmap.");
+            alert("Failed to create roadmap. Check console for details.");
         } finally {
             setLoading(false);
         }
@@ -78,7 +80,7 @@ const CreatePlan = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-8">
 
-                    {/* --- BASIC INFO CARD --- */}
+                    {/* --- 1. OVERVIEW --- */}
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
                         <h3 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-100 pb-2">1. Overview</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -127,7 +129,16 @@ const CreatePlan = () => {
                                     <option>Advanced</option>
                                 </select>
                             </div>
-                            <div className="col-span-2">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Target Date (Optional)</label>
+                                <input
+                                    type="date"
+                                    className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={formData.targetDate}
+                                    onChange={e => setFormData({...formData, targetDate: e.target.value})}
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">Tags (comma separated)</label>
                                 <input
                                     className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -139,7 +150,7 @@ const CreatePlan = () => {
                         </div>
                     </div>
 
-                    {/* --- CURRICULUM BUILDER --- */}
+                    {/* --- 2. CURRICULUM --- */}
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-2">
                             <h3 className="font-bold text-lg text-slate-800">2. Curriculum Steps</h3>
@@ -167,14 +178,14 @@ const CreatePlan = () => {
                                         <input
                                             placeholder="Resource URL (Optional)"
                                             className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                                            value={step.resourceUrl}
-                                            onChange={e => handleStepChange(index, 'resourceUrl', e.target.value)}
+                                            value={step.resourceLink}
+                                            onChange={e => handleStepChange(index, 'resourceLink', e.target.value)}
                                         />
                                         <input
                                             placeholder="Duration (e.g. 2 hours)"
                                             className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                                            value={step.duration}
-                                            onChange={e => handleStepChange(index, 'duration', e.target.value)}
+                                            value={step.estimatedTime}
+                                            onChange={e => handleStepChange(index, 'estimatedTime', e.target.value)}
                                         />
                                     </div>
                                     {steps.length > 1 && (

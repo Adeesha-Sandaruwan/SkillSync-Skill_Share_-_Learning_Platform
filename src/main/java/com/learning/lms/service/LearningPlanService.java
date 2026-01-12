@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -31,6 +32,25 @@ public class LearningPlanService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        return savePlanFromRequest(user, request);
+    }
+
+    @Transactional
+    public List<LearningPlan> createBulkPlans(Long userId, List<LearningPlanRequest> requests) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<LearningPlan> plans = new ArrayList<>();
+
+        // Loop through requests and save each one using the helper method
+        for (LearningPlanRequest req : requests) {
+            plans.add(savePlanFromRequest(user, req));
+        }
+        return plans;
+    }
+
+    // --- HELPER METHOD: Handles mapping safely for both Single and Bulk ---
+    private LearningPlan savePlanFromRequest(User user, LearningPlanRequest request) {
         LearningPlan plan = new LearningPlan();
         plan.setTitle(request.getTitle());
         plan.setDescription(request.getDescription());
@@ -40,7 +60,18 @@ public class LearningPlanService {
         plan.setPublic(true);
         plan.setUser(user);
 
+        // Handle Tags (Safely)
+        if (request.getTags() != null) {
+            plan.setTags(request.getTags());
+        }
+
+        // Handle Steps (Safely)
         if (request.getSteps() != null) {
+            // Ensure the list is initialized
+            if (plan.getSteps() == null) {
+                plan.setSteps(new ArrayList<>());
+            }
+
             for (PlanStepRequest stepReq : request.getSteps()) {
                 PlanStep step = new PlanStep();
                 step.setTitle(stepReq.getTitle());
@@ -60,16 +91,13 @@ public class LearningPlanService {
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
 
-    // --- UPDATED: Search Logic ---
     public List<LearningPlan> getPublicPlans(String query, String difficulty, String category) {
-        // If no filters are provided, fallback to the standard "Find All Public"
         if ((query == null || query.isBlank()) &&
                 (difficulty == null || difficulty.equals("All")) &&
                 (category == null || category.equals("All"))) {
             return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
         }
 
-        // Otherwise, use the search query
         if (difficulty == null || difficulty.isBlank()) difficulty = "All";
         if (category == null || category.isBlank()) category = "All";
         if (query != null && query.isBlank()) query = null;
@@ -77,7 +105,6 @@ public class LearningPlanService {
         return planRepository.searchPlans(query, difficulty, category);
     }
 
-    // Overloaded method for backward compatibility (if needed)
     public List<LearningPlan> getPublicPlans() {
         return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
     }
@@ -90,6 +117,8 @@ public class LearningPlanService {
         plan.setTitle(request.getTitle());
         plan.setDescription(request.getDescription());
         plan.setTargetDate(request.getTargetDate());
+
+        // Note: You can add tag/step update logic here if needed later
 
         return planRepository.save(plan);
     }
@@ -124,6 +153,11 @@ public class LearningPlanService {
         clone.setPublic(true);
         clone.setClonedFromId(original.getId());
         clone.setUser(newOwner);
+
+        // Copy tags
+        if (original.getTags() != null) {
+            clone.setTags(new ArrayList<>(original.getTags()));
+        }
 
         for (PlanStep oldStep : original.getSteps()) {
             PlanStep newStep = new PlanStep();

@@ -17,11 +17,10 @@ public class PlanStep {
     private String resourceLink;
     private String estimatedTime;
 
-    // Default to false so it's not null in DB
+    // FIX: Renamed to 'completed' (Lombok will still generate isCompleted() and setCompleted())
     @Column(nullable = false)
-    private boolean isCompleted = false;
+    private boolean completed = false;
 
-    // @JsonBackReference tells Jackson: "Stop here, don't serialize the parent again"
     @ManyToOne
     @JoinColumn(name = "learning_plan_id")
     @JsonBackReference

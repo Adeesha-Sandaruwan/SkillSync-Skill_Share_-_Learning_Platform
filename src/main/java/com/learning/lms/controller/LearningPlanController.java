@@ -1,6 +1,7 @@
 package com.learning.lms.controller;
 
 import com.learning.lms.dto.LearningPlanRequest;
+import com.learning.lms.dto.LearningPlanSummaryDto;
 import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.service.LearningPlanService;
 import jakarta.validation.Valid;
@@ -16,20 +17,19 @@ public class LearningPlanController {
 
     private final LearningPlanService planService;
 
-    // Single Creation
     @PostMapping("/users/{userId}/plans")
     public ResponseEntity<LearningPlan> createPlan(@PathVariable Long userId, @Valid @RequestBody LearningPlanRequest request) {
         return ResponseEntity.ok(planService.createPlan(userId, request));
     }
 
-    // Bulk Creation (The one you need for the JSON list)
     @PostMapping("/users/{userId}/plans/bulk")
     public ResponseEntity<List<LearningPlan>> createBulkPlans(@PathVariable Long userId, @RequestBody List<LearningPlanRequest> requests) {
         return ResponseEntity.ok(planService.createBulkPlans(userId, requests));
     }
 
+    // UPDATED: Returns DTOs (Fast)
     @GetMapping("/users/{userId}/plans")
-    public ResponseEntity<List<LearningPlan>> getUserPlans(@PathVariable Long userId) {
+    public ResponseEntity<List<LearningPlanSummaryDto>> getUserPlans(@PathVariable Long userId) {
         return ResponseEntity.ok(planService.getUserPlans(userId));
     }
 
@@ -55,8 +55,9 @@ public class LearningPlanController {
         return ResponseEntity.ok().build();
     }
 
+    // UPDATED: Returns DTOs (Fast)
     @GetMapping("/plans/public")
-    public ResponseEntity<List<LearningPlan>> getPublicPlans(
+    public ResponseEntity<List<LearningPlanSummaryDto>> getPublicPlans(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "All") String difficulty,
             @RequestParam(defaultValue = "All") String category

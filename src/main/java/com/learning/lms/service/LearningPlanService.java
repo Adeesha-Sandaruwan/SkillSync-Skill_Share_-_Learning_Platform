@@ -1,6 +1,8 @@
 package com.learning.lms.service;
 
 import com.learning.lms.dto.LearningPlanRequest;
+import com.learning.lms.dto.LearningPlanSummaryDto;
+import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.dto.PlanStepRequest;
 import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.entity.PlanStep;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,15 +26,15 @@ public class LearningPlanService {
     private final UserRepository userRepository;
     private final PlanStepRepository stepRepository;
 
-    public List<LearningPlan> getUserPlans(Long userId) {
-        return planRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    public List<LearningPlanSummaryDto> getUserPlans(Long userId) {
+        List<LearningPlan> plans = planRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return plans.stream().map(this::mapToSummaryDto).collect(Collectors.toList());
     }
 
     @Transactional
     public LearningPlan createPlan(Long userId, LearningPlanRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         return savePlanFromRequest(user, request);
     }
 
@@ -39,17 +42,13 @@ public class LearningPlanService {
     public List<LearningPlan> createBulkPlans(Long userId, List<LearningPlanRequest> requests) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         List<LearningPlan> plans = new ArrayList<>();
-
-        // Loop through requests and save each one using the helper method
         for (LearningPlanRequest req : requests) {
             plans.add(savePlanFromRequest(user, req));
         }
         return plans;
     }
 
-    // --- HELPER METHOD: Handles mapping safely for both Single and Bulk ---
     private LearningPlan savePlanFromRequest(User user, LearningPlanRequest request) {
         LearningPlan plan = new LearningPlan();
         plan.setTitle(request.getTitle());
@@ -60,18 +59,12 @@ public class LearningPlanService {
         plan.setPublic(true);
         plan.setUser(user);
 
-        // Handle Tags (Safely)
         if (request.getTags() != null) {
             plan.setTags(request.getTags());
         }
 
-        // Handle Steps (Safely)
         if (request.getSteps() != null) {
-            // Ensure the list is initialized
-            if (plan.getSteps() == null) {
-                plan.setSteps(new ArrayList<>());
-            }
-
+            if (plan.getSteps() == null) plan.setSteps(new ArrayList<>());
             for (PlanStepRequest stepReq : request.getSteps()) {
                 PlanStep step = new PlanStep();
                 step.setTitle(stepReq.getTitle());
@@ -82,7 +75,6 @@ public class LearningPlanService {
                 plan.getSteps().add(step);
             }
         }
-
         return planRepository.save(plan);
     }
 
@@ -91,35 +83,28 @@ public class LearningPlanService {
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
 
-    public List<LearningPlan> getPublicPlans(String query, String difficulty, String category) {
+    public List<LearningPlanSummaryDto> getPublicPlans(String query, String difficulty, String category) {
+        List<LearningPlan> plans;
         if ((query == null || query.isBlank()) &&
                 (difficulty == null || difficulty.equals("All")) &&
                 (category == null || category.equals("All"))) {
-            return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+            plans = planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+        } else {
+            if (difficulty == null || difficulty.isBlank()) difficulty = "All";
+            if (category == null || category.isBlank()) category = "All";
+            if (query != null && query.isBlank()) query = null;
+            plans = planRepository.searchPlans(query, difficulty, category);
         }
-
-        if (difficulty == null || difficulty.isBlank()) difficulty = "All";
-        if (category == null || category.isBlank()) category = "All";
-        if (query != null && query.isBlank()) query = null;
-
-        return planRepository.searchPlans(query, difficulty, category);
-    }
-
-    public List<LearningPlan> getPublicPlans() {
-        return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+        return plans.stream().map(this::mapToSummaryDto).collect(Collectors.toList());
     }
 
     @Transactional
     public LearningPlan updatePlan(Long planId, LearningPlanRequest request) {
         LearningPlan plan = planRepository.findById(planId)
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
-
         plan.setTitle(request.getTitle());
         plan.setDescription(request.getDescription());
         plan.setTargetDate(request.getTargetDate());
-
-        // Note: You can add tag/step update logic here if needed later
-
         return planRepository.save(plan);
     }
 
@@ -140,10 +125,8 @@ public class LearningPlanService {
     public LearningPlan clonePlan(Long originalPlanId, Long newOwnerId) {
         LearningPlan original = planRepository.findById(originalPlanId)
                 .orElseThrow(() -> new RuntimeException("Original plan not found"));
-
         User newOwner = userRepository.findById(newOwnerId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         LearningPlan clone = new LearningPlan();
         clone.setTitle(original.getTitle() + " (Copy)");
         clone.setDescription(original.getDescription());
@@ -153,12 +136,9 @@ public class LearningPlanService {
         clone.setPublic(true);
         clone.setClonedFromId(original.getId());
         clone.setUser(newOwner);
-
-        // Copy tags
         if (original.getTags() != null) {
             clone.setTags(new ArrayList<>(original.getTags()));
         }
-
         for (PlanStep oldStep : original.getSteps()) {
             PlanStep newStep = new PlanStep();
             newStep.setTitle(oldStep.getTitle());
@@ -168,7 +148,35 @@ public class LearningPlanService {
             newStep.setLearningPlan(clone);
             clone.getSteps().add(newStep);
         }
-
         return planRepository.save(clone);
+    }
+
+    // --- MAPPER HELPERS ---
+    private LearningPlanSummaryDto mapToSummaryDto(LearningPlan plan) {
+        return LearningPlanSummaryDto.builder()
+                .id(plan.getId())
+                .title(plan.getTitle())
+                .description(plan.getDescription())
+                .category(plan.getCategory())
+                .difficulty(plan.getDifficulty())
+                .isPublic(plan.isPublic())
+                .targetDate(plan.getTargetDate())
+                .tags(plan.getTags())
+                .createdAt(plan.getCreatedAt())
+                .totalSteps(plan.getSteps() != null ? plan.getSteps().size() : 0)
+                .user(mapToUserDto(plan.getUser()))
+                .build();
+    }
+
+    private UserSummaryDto mapToUserDto(User user) {
+        if (user == null) return null;
+        return UserSummaryDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .firstname(user.getFirstname())
+                .lastname(user.getLastname())
+                .avatarUrl(user.getAvatarUrl())
+                .level(user.getLevel())
+                .build();
     }
 }

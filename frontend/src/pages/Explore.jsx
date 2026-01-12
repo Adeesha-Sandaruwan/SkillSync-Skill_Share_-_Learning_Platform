@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import PlanCard from '../components/PlanCard';
@@ -16,30 +16,29 @@ const Explore = () => {
     const [search, setSearch] = useState(queryFromUrl);
     const [difficulty, setDifficulty] = useState('All');
 
-    // --- UPDATED: FETCH LOGIC ---
     useEffect(() => {
         const fetchPlans = async () => {
             setLoading(true);
             try {
-                // Now passing parameters to backend
+                // Fetch fast DTOs
                 const res = await getPublicPlans(search, difficulty, 'All');
-                setPlans(res.data);
+                // Ensure we set an array (guard against null response)
+                setPlans(res.data || []);
             } catch (error) {
                 console.error("Failed to fetch explore content", error);
+                setPlans([]);
             } finally {
                 setLoading(false);
             }
         };
 
-        // Debounce search to prevent spamming API while typing
         const timeoutId = setTimeout(() => {
             fetchPlans();
-        }, 500);
+        }, 300); // 300ms debounce
 
         return () => clearTimeout(timeoutId);
-    }, [search, difficulty]); // Re-fetch when these change
+    }, [search, difficulty]);
 
-    // Sync URL with Search Input
     const handleSearchChange = (e) => {
         const val = e.target.value;
         setSearch(val);
@@ -50,7 +49,7 @@ const Explore = () => {
         <div className="min-h-screen bg-slate-50">
             <Navbar />
 
-            {/* Hero / Filter Section */}
+            {/* Header */}
             <div className="bg-white border-b border-slate-200 sticky top-16 z-30 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 py-6">
                     <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
@@ -66,7 +65,7 @@ const Explore = () => {
                                 <input
                                     type="text"
                                     placeholder="Search topic..."
-                                    className="pl-10 pr-4 py-2.5 bg-slate-100 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-64 font-bold text-slate-700 transition-all"
+                                    className="pl-10 pr-4 py-2.5 bg-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-64 font-bold text-slate-700 transition-all"
                                     value={search}
                                     onChange={handleSearchChange}
                                 />
@@ -74,7 +73,7 @@ const Explore = () => {
                             </div>
 
                             <select
-                                className="px-4 py-2.5 bg-slate-100 rounded-xl font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-200 transition-colors"
+                                className="px-4 py-2.5 bg-slate-100 rounded-xl font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-200"
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
                             >
@@ -88,7 +87,7 @@ const Explore = () => {
                 </div>
             </div>
 
-            {/* Grid Content */}
+            {/* Grid */}
             <main className="max-w-7xl mx-auto px-4 py-8 min-h-[60vh]">
                 {loading ? (
                     <div className="flex justify-center pt-32"><LoadingSpinner /></div>
@@ -105,7 +104,7 @@ const Explore = () => {
                         <div className="text-6xl mb-4 grayscale opacity-50">🔭</div>
                         <h3 className="text-xl font-bold text-slate-700 mb-2">No roadmaps found.</h3>
                         <p className="text-slate-500 max-w-md mx-auto">
-                            We couldn't find any plans matching "{search}". Try a different keyword or filter.
+                            We couldn't find any plans matching "{search}".
                         </p>
                         <button onClick={() => { setSearch(''); setDifficulty('All'); setSearchParams({}); }} className="mt-6 text-indigo-600 font-bold hover:underline">
                             Clear Filters

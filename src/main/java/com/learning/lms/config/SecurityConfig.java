@@ -29,21 +29,25 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // Disable CSRF for APIs
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Allow Preflight (OPTIONS) - Critical for Login
+                        // 1. Allow Preflight (OPTIONS)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // 2. Allow Public Endpoints
-                        .requestMatchers("/api/auth/**").permitAll()   // Login/Register
-                        .requestMatchers("/uploads/**").permitAll()    // Images
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/error").permitAll()
 
-                        // 3. Allow GET requests for reading content without login (Optional)
+                        // 3. THIS WAS MISSING: Allow Public Plans!
+                        .requestMatchers("/api/plans/public").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll() // Allow viewing details without login
+
+                        // 4. Allow other read-only content
                         .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
 
-                        // 4. Lock everything else
+                        // 5. Lock everything else
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -56,17 +60,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // ALLOW YOUR FRONTEND URL SPECIFICALLY
         configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
-
-        // Allow all HTTP methods (GET, POST, PUT, DELETE, OPTIONS)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
-
-        // Allow all headers (Authorization, Content-Type, etc.)
         configuration.setAllowedHeaders(List.of("*"));
-
-        // Allow credentials (Cookies/Auth Headers)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

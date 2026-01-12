@@ -1,7 +1,7 @@
 package com.learning.lms.service;
 
 import com.learning.lms.dto.LearningPlanRequest;
-import com.learning.lms.dto.PlanStepRequest; // Assuming you have/need this DTO
+import com.learning.lms.dto.PlanStepRequest;
 import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.entity.PlanStep;
 import com.learning.lms.entity.User;
@@ -37,10 +37,9 @@ public class LearningPlanService {
         plan.setCategory(request.getCategory());
         plan.setDifficulty(request.getDifficulty());
         plan.setTargetDate(request.getTargetDate());
-        plan.setPublic(true); // Default
+        plan.setPublic(true);
         plan.setUser(user);
 
-        // Add Steps if provided in request
         if (request.getSteps() != null) {
             for (PlanStepRequest stepReq : request.getSteps()) {
                 PlanStep step = new PlanStep();
@@ -61,10 +60,28 @@ public class LearningPlanService {
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
 
+    // --- UPDATED: Search Logic ---
+    public List<LearningPlan> getPublicPlans(String query, String difficulty, String category) {
+        // If no filters are provided, fallback to the standard "Find All Public"
+        if ((query == null || query.isBlank()) &&
+                (difficulty == null || difficulty.equals("All")) &&
+                (category == null || category.equals("All"))) {
+            return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+        }
 
+        // Otherwise, use the search query
+        if (difficulty == null || difficulty.isBlank()) difficulty = "All";
+        if (category == null || category.isBlank()) category = "All";
+        if (query != null && query.isBlank()) query = null;
+
+        return planRepository.searchPlans(query, difficulty, category);
+    }
+
+    // Overloaded method for backward compatibility (if needed)
     public List<LearningPlan> getPublicPlans() {
         return planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
     }
+
     @Transactional
     public LearningPlan updatePlan(Long planId, LearningPlanRequest request) {
         LearningPlan plan = planRepository.findById(planId)
@@ -73,8 +90,6 @@ public class LearningPlanService {
         plan.setTitle(request.getTitle());
         plan.setDescription(request.getDescription());
         plan.setTargetDate(request.getTargetDate());
-        // We don't overwrite steps here usually, steps are managed individually or via a specific edit endpoint
-        // to avoid wiping progress.
 
         return planRepository.save(plan);
     }
@@ -92,7 +107,6 @@ public class LearningPlanService {
         stepRepository.save(step);
     }
 
-    // --- INDUSTRY LEVEL FEATURE: CLONING ---
     @Transactional
     public LearningPlan clonePlan(Long originalPlanId, Long newOwnerId) {
         LearningPlan original = planRepository.findById(originalPlanId)
@@ -101,24 +115,22 @@ public class LearningPlanService {
         User newOwner = userRepository.findById(newOwnerId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Create the shell
         LearningPlan clone = new LearningPlan();
         clone.setTitle(original.getTitle() + " (Copy)");
         clone.setDescription(original.getDescription());
         clone.setCategory(original.getCategory());
         clone.setDifficulty(original.getDifficulty());
-        clone.setTargetDate(original.getTargetDate()); // Can be adjusted by user later
+        clone.setTargetDate(original.getTargetDate());
         clone.setPublic(true);
         clone.setClonedFromId(original.getId());
         clone.setUser(newOwner);
 
-        // Deep Copy Steps (Resetting progress)
         for (PlanStep oldStep : original.getSteps()) {
             PlanStep newStep = new PlanStep();
             newStep.setTitle(oldStep.getTitle());
             newStep.setResourceLink(oldStep.getResourceLink());
             newStep.setEstimatedTime(oldStep.getEstimatedTime());
-            newStep.setCompleted(false); // Reset progress!
+            newStep.setCompleted(false);
             newStep.setLearningPlan(clone);
             clone.getSteps().add(newStep);
         }

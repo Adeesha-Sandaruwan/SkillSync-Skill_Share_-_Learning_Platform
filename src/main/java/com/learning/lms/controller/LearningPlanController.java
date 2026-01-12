@@ -26,7 +26,6 @@ public class LearningPlanController {
         return ResponseEntity.ok(planService.getUserPlans(userId));
     }
 
-    // --- FIXED: Added missing endpoint for viewing single plan details ---
     @GetMapping("/plans/{planId}")
     public ResponseEntity<LearningPlan> getPlanById(@PathVariable Long planId) {
         return ResponseEntity.ok(planService.getPlanById(planId));
@@ -49,9 +48,14 @@ public class LearningPlanController {
         return ResponseEntity.ok().build();
     }
 
+    // --- UPDATED: SEARCH ENDPOINT ---
     @GetMapping("/plans/public")
-    public ResponseEntity<List<LearningPlan>> getPublicPlans() {
-        return ResponseEntity.ok(planService.getPublicPlans());
+    public ResponseEntity<List<LearningPlan>> getPublicPlans(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "All") String difficulty,
+            @RequestParam(defaultValue = "All") String category
+    ) {
+        return ResponseEntity.ok(planService.getPublicPlans(q, difficulty, category));
     }
 
     @PostMapping("/plans/{planId}/clone")

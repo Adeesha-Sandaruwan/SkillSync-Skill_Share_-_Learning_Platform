@@ -10,53 +10,36 @@ const Explore = () => {
     const queryFromUrl = searchParams.get('q') || '';
 
     const [plans, setPlans] = useState([]);
-    const [filteredPlans, setFilteredPlans] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Filters
     const [search, setSearch] = useState(queryFromUrl);
     const [difficulty, setDifficulty] = useState('All');
 
-    // 1. Fetch Plans Once
+    // --- UPDATED: FETCH LOGIC ---
     useEffect(() => {
         const fetchPlans = async () => {
+            setLoading(true);
             try {
-                const res = await getPublicPlans();
+                // Now passing parameters to backend
+                const res = await getPublicPlans(search, difficulty, 'All');
                 setPlans(res.data);
-                setFilteredPlans(res.data);
             } catch (error) {
                 console.error("Failed to fetch explore content", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchPlans();
-    }, []);
 
-    // 2. Sync Local State with URL
-    useEffect(() => {
-        setSearch(queryFromUrl);
-    }, [queryFromUrl]);
+        // Debounce search to prevent spamming API while typing
+        const timeoutId = setTimeout(() => {
+            fetchPlans();
+        }, 500);
 
-    // 3. Filtering Logic (Runs when search, difficulty, or plans change)
-    useEffect(() => {
-        let result = plans;
+        return () => clearTimeout(timeoutId);
+    }, [search, difficulty]); // Re-fetch when these change
 
-        if (search) {
-            result = result.filter(p =>
-                p.title.toLowerCase().includes(search.toLowerCase()) ||
-                p.description?.toLowerCase().includes(search.toLowerCase())
-            );
-        }
-
-        if (difficulty !== 'All') {
-            result = result.filter(p => p.difficulty === difficulty);
-        }
-
-        setFilteredPlans(result);
-    }, [search, difficulty, plans]);
-
-    // Update URL when typing (Debounced slightly by UI behavior, good enough for now)
+    // Sync URL with Search Input
     const handleSearchChange = (e) => {
         const val = e.target.value;
         setSearch(val);
@@ -109,9 +92,9 @@ const Explore = () => {
             <main className="max-w-7xl mx-auto px-4 py-8 min-h-[60vh]">
                 {loading ? (
                     <div className="flex justify-center pt-32"><LoadingSpinner /></div>
-                ) : filteredPlans.length > 0 ? (
+                ) : plans.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in-up">
-                        {filteredPlans.map(plan => (
+                        {plans.map(plan => (
                             <div key={plan.id} className="transform transition-all hover:-translate-y-1">
                                 <PlanCard plan={plan} isOwner={false} />
                             </div>

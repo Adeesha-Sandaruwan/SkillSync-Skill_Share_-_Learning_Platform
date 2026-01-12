@@ -16,9 +16,14 @@ api.interceptors.request.use((config) => {
     return Promise.reject(error);
 });
 
-// --- NEW METHODS FOR EXPLORE ---
-export const getPublicPlans = async () => {
-    return await api.get('/plans/public');
+// --- UPDATED: SUPPORT SEARCH PARAMS ---
+export const getPublicPlans = async (query = '', difficulty = 'All', category = 'All') => {
+    // Manually building string to ensure 'All' is handled correctly by backend defaults
+    let url = `/plans/public?difficulty=${difficulty}&category=${category}`;
+    if (query) {
+        url += `&q=${encodeURIComponent(query)}`;
+    }
+    return await api.get(url);
 };
 
 export default api;

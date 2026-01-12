@@ -1,6 +1,7 @@
 package com.learning.lms.repository;
 
 import com.learning.lms.entity.LearningPlan;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,15 +12,19 @@ import java.util.List;
 @Repository
 public interface LearningPlanRepository extends JpaRepository<LearningPlan, Long> {
 
+    // Fetch User + Plan in one go
+    @EntityGraph(attributePaths = {"user"})
     List<LearningPlan> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    @EntityGraph(attributePaths = {"user"})
     List<LearningPlan> findByUserId(Long userId);
 
-    // For Discovery/Explore page
+    // For Discovery/Explore page - Crucial for speed
+    @EntityGraph(attributePaths = {"user"})
     List<LearningPlan> findByIsPublicTrueOrderByCreatedAtDesc();
 
-    // --- NEW: Advanced Search Query ---
-    // Safely handles NULLs so you can search by just title, just difficulty, or both.
+    // Advanced Search - Also fetches user instantly
+    @EntityGraph(attributePaths = {"user"})
     @Query("SELECT p FROM LearningPlan p WHERE " +
             "p.isPublic = true AND " +
             "(:query IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +

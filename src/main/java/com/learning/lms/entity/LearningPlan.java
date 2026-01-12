@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.ToString;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,31 +26,34 @@ public class LearningPlan {
     private String description;
 
     private String category;
-    private String difficulty; // Beginner, Intermediate, Advanced
+    private String difficulty;
 
     @Column(nullable = false)
     private boolean isPublic = true;
 
     private Long clonedFromId;
 
-    // --- NEW: Added Tags Support ---
-    @ElementCollection
+    // --- OPTIMIZED: Batch Fetching for Tags ---
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "plan_tags", joinColumns = @JoinColumn(name = "plan_id"))
     @Column(name = "tag")
+    @BatchSize(size = 20) // <--- MAGIC FIX: Loads tags for 20 plans in 1 query
     private List<String> tags = new ArrayList<>();
-    // -------------------------------
 
     private String topic;
     private String resources;
     private LocalDate startDate;
     private LocalDate targetDate;
 
-    @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    // --- OPTIMIZED: Lazy + Batch Fetching for Steps ---
+    @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     @ToString.Exclude
+    @BatchSize(size = 20) // <--- MAGIC FIX: Loads steps for 20 plans in 1 query
     private List<PlanStep> steps = new ArrayList<>();
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    // --- OPTIMIZED: Lazy Loading for User ---
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "following", "followers", "hibernateLazyInitializer", "handler"})
     private User user;

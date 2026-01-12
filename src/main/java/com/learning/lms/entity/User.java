@@ -3,6 +3,7 @@ package com.learning.lms.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -43,19 +44,20 @@ public class User implements UserDetails {
     @Column(columnDefinition = "TEXT")
     private String avatarUrl;
 
-    // --- GAMIFICATION FIELDS (Safe Defaults) ---
     @Column(nullable = false)
     private Integer xp = 0;
 
     @Column(nullable = false)
     private Integer level = 1;
 
+    // Optimized Badges
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_badges", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "badge_name")
+    @BatchSize(size = 20)
     private Set<String> badges = new HashSet<>();
 
-    // --- RELATIONSHIPS ---
+    // --- RELATIONSHIPS (Optimized) ---
     @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
@@ -65,15 +67,16 @@ public class User implements UserDetails {
             joinColumns = @JoinColumn(name = "follower_id"),
             inverseJoinColumns = @JoinColumn(name = "following_id")
     )
+    @BatchSize(size = 20)
     private Set<User> following = new HashSet<>();
 
     @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToMany(mappedBy = "following", fetch = FetchType.LAZY)
+    @BatchSize(size = 20)
     private Set<User> followers = new HashSet<>();
 
-    // --- SAFETY HOOK: Ensure values exist before saving ---
     @PrePersist
     @PreUpdate
     protected void onSave() {
@@ -82,7 +85,6 @@ public class User implements UserDetails {
         if (this.badges == null) this.badges = new HashSet<>();
     }
 
-    // --- HELPER METHODS ---
     public void follow(User userToFollow) {
         this.following.add(userToFollow);
         userToFollow.getFollowers().add(this);
@@ -93,7 +95,6 @@ public class User implements UserDetails {
         userToUnfollow.getFollowers().remove(this);
     }
 
-    // --- SECURITY ---
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("USER"));

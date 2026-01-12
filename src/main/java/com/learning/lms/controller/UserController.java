@@ -6,8 +6,10 @@ import com.learning.lms.entity.User;
 import com.learning.lms.repository.UserRepository;
 import com.learning.lms.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,6 +36,12 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUserProfile(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
+    }
+
+    @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> uploadAvatar(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        String avatarUrl = userService.uploadAvatar(id, file);
+        return ResponseEntity.ok(avatarUrl);
     }
 
     @PostMapping("/{userId}/follow")
@@ -64,12 +72,8 @@ public class UserController {
         return ResponseEntity.ok(topUsers);
     }
 
-    // --- NEW: Suggestion Endpoint (Who to Follow) ---
     @GetMapping("/{userId}/suggestions")
     public ResponseEntity<List<User>> getSuggestions(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getSuggestions(userId));
     }
-
-    // NOTE: 'getUserPlans' and 'getUserProgress' are removed from here
-    // because they are handled by LearningPlanController and ProgressUpdateController
 }

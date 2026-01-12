@@ -10,15 +10,22 @@ import com.learning.lms.repository.LearningPlanRepository;
 import com.learning.lms.repository.PlanStepRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
+import com.learning.lms.util.ImageUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Collections; // <--- Needed for shuffle
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +39,8 @@ public class UserService {
     private final LearningPlanRepository learningPlanRepository;
     private final PlanStepRepository planStepRepository;
 
+    private final String UPLOAD_DIR = "uploads/";
+
     public User registerUser(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) throw new RuntimeException("Username already taken");
         if (userRepository.existsByEmail(request.getEmail())) throw new RuntimeException("Email already registered");
@@ -39,7 +48,6 @@ public class UserService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        // Initialize Gamification
         user.setXp(0);
         user.setLevel(1);
         user.getBadges().add("NOVICE");
@@ -70,6 +78,30 @@ public class UserService {
     }
 
     @Transactional
+    public String uploadAvatar(Long userId, MultipartFile file) {
+        try {
+            User user = getUserById(userId);
+
+            File directory = new File(UPLOAD_DIR);
+            if (!directory.exists()) directory.mkdirs();
+
+            String fileName = "avatar_" + userId + "_" + UUID.randomUUID() + ".jpg";
+            Path filePath = Paths.get(UPLOAD_DIR + fileName);
+
+            byte[] compressedImage = ImageUtils.compressImage(file);
+            Files.write(filePath, compressedImage);
+
+            String fileUrl = "http://localhost:8080/uploads/" + fileName;
+            user.setAvatarUrl(fileUrl);
+            userRepository.save(user);
+
+            return fileUrl;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to upload avatar: " + e.getMessage());
+        }
+    }
+
+    @Transactional
     public void followUser(Long followerId, Long targetUserId) {
         if (followerId.equals(targetUserId)) throw new RuntimeException("You cannot follow yourself");
         User follower = getUserById(followerId);
@@ -78,7 +110,6 @@ public class UserService {
         follower.follow(target);
         userRepository.save(follower);
 
-        // Award XP for social interaction
         awardXp(followerId, 5);
 
         notificationService.createNotification(
@@ -114,19 +145,16 @@ public class UserService {
         return new UserStatsResponse(postCount, likeCount, planCount, stepsCompleted, user.getFollowers().size(), user.getFollowing().size());
     }
 
-    // --- GAMIFICATION ENGINE ---
     @Transactional
     public void awardXp(Long userId, int amount) {
         User user = getUserById(userId);
         user.setXp(user.getXp() + amount);
 
-        // Logic: Level Up every 100 XP
         int newLevel = (user.getXp() / 100) + 1;
         if (newLevel > user.getLevel()) {
             user.setLevel(newLevel);
         }
 
-        // Logic: Badge Awards
         if (user.getXp() >= 50 && !user.getBadges().contains("APPRENTICE")) {
             user.getBadges().add("APPRENTICE");
         }
@@ -144,9 +172,7 @@ public class UserService {
         return userRepository.findAll(Sort.by("xp").descending());
     }
 
-    // --- THIS IS THE MISSING METHOD ---
     public List<User> getSuggestions(Long currentUserId) {
-        // Fetch 20, shuffle, return 5
         List<User> candidates = userRepository.findSuggestedUsers(currentUserId, PageRequest.of(0, 20));
         Collections.shuffle(candidates);
         return candidates.stream().limit(5).toList();

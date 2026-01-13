@@ -87,11 +87,6 @@ const Navbar = () => {
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] safe-area-bottom">
                 <MobileNavLink to="/" active={isActive('/')} icon={<HomeIcon />} label="Feed" />
                 <MobileNavLink to="/explore" active={isActive('/explore')} icon={<CompassIcon />} label="Explore" />
-                <div className="relative -top-5">
-                    <Link to="/create-plan" className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-300 hover:scale-110 transition-transform">
-                        <span className="text-2xl font-light">+</span>
-                    </Link>
-                </div>
                 <MobileNavLink to="/leaderboard" active={isActive('/leaderboard')} icon={<TrophyIcon />} label="Rank" />
                 <MobileNavLink to={`/profile/${user?.id}`} active={isActive(`/profile/${user?.id}`)} icon={<UserIcon />} label="Profile" />
             </div>

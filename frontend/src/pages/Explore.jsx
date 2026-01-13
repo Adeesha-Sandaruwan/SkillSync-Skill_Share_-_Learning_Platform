@@ -8,8 +8,11 @@ import { getPublicPlans } from '../services/api';
 const Explore = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryFromUrl = searchParams.get('q') || '';
+
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Filters
     const [search, setSearch] = useState(queryFromUrl);
     const [difficulty, setDifficulty] = useState('All');
 
@@ -17,7 +20,9 @@ const Explore = () => {
         const fetchPlans = async () => {
             setLoading(true);
             try {
+                // Fetch fast DTOs
                 const res = await getPublicPlans(search, difficulty, 'All');
+                // Ensure we set an array (guard against null response)
                 setPlans(res.data || []);
             } catch (error) {
                 console.error("Failed to fetch explore content", error);
@@ -26,7 +31,11 @@ const Explore = () => {
                 setLoading(false);
             }
         };
-        const timeoutId = setTimeout(() => { fetchPlans(); }, 300);
+
+        const timeoutId = setTimeout(() => {
+            fetchPlans();
+        }, 300); // 300ms debounce
+
         return () => clearTimeout(timeoutId);
     }, [search, difficulty]);
 
@@ -39,7 +48,10 @@ const Explore = () => {
     return (
         <div className="min-h-screen bg-slate-50">
             <Navbar />
-            <div className="bg-white border-b border-slate-200 sticky top-16 z-30 shadow-sm">
+
+            {/* Header Section */}
+            {/* FIX: Removed 'sticky top-16 z-30' so this section scrolls away naturally */}
+            <div className="bg-white border-b border-slate-200 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 py-6">
                     <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
                         <div>
@@ -48,12 +60,24 @@ const Explore = () => {
                             </h1>
                             <p className="text-slate-500 text-sm font-medium">Discover roadmaps from the community.</p>
                         </div>
+
                         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                             <div className="relative w-full sm:w-64">
-                                <input type="text" placeholder="Search topic..." className="pl-10 pr-4 py-2.5 bg-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none w-full font-bold text-slate-700 transition-all" value={search} onChange={handleSearchChange} />
+                                <input
+                                    type="text"
+                                    placeholder="Search topic..."
+                                    className="pl-10 pr-4 py-2.5 bg-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none w-full font-bold text-slate-700 transition-all"
+                                    value={search}
+                                    onChange={handleSearchChange}
+                                />
                                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
                             </div>
-                            <select className="px-4 py-2.5 bg-slate-100 rounded-xl font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-200 w-full sm:w-auto" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+
+                            <select
+                                className="px-4 py-2.5 bg-slate-100 rounded-xl font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-200 w-full sm:w-auto"
+                                value={difficulty}
+                                onChange={(e) => setDifficulty(e.target.value)}
+                            >
                                 <option value="All">⚡ All</option>
                                 <option value="Beginner">🌱 Beginner</option>
                                 <option value="Intermediate">🚀 Intermediate</option>
@@ -64,6 +88,7 @@ const Explore = () => {
                 </div>
             </div>
 
+            {/* Grid */}
             <main className="max-w-7xl mx-auto px-4 py-8 min-h-[60vh] pb-24 md:pb-8">
                 {loading ? (
                     <div className="flex justify-center pt-32"><LoadingSpinner /></div>
@@ -79,8 +104,12 @@ const Explore = () => {
                     <div className="text-center py-32 bg-white/50 rounded-3xl border border-dashed border-slate-300 mx-auto max-w-2xl mt-10">
                         <div className="text-6xl mb-4 grayscale opacity-50">🔭</div>
                         <h3 className="text-xl font-bold text-slate-700 mb-2">No roadmaps found.</h3>
-                        <p className="text-slate-500 max-w-md mx-auto">We couldn't find any plans matching "{search}".</p>
-                        <button onClick={() => { setSearch(''); setDifficulty('All'); setSearchParams({}); }} className="mt-6 text-indigo-600 font-bold hover:underline">Clear Filters</button>
+                        <p className="text-slate-500 max-w-md mx-auto">
+                            We couldn't find any plans matching "{search}".
+                        </p>
+                        <button onClick={() => { setSearch(''); setDifficulty('All'); setSearchParams({}); }} className="mt-6 text-indigo-600 font-bold hover:underline">
+                            Clear Filters
+                        </button>
                     </div>
                 )}
             </main>

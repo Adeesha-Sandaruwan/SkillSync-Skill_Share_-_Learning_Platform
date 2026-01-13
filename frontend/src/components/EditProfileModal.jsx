@@ -1,84 +1,138 @@
-import { useState, useRef } from 'react';
-import api from '../services/api';
+import { useState } from 'react';
+import api from '../services/api'; // uses your configured axios instance
 import LoadingSpinner from './LoadingSpinner';
 
 const EditProfileModal = ({ user, onClose, onUpdate }) => {
-    const [formData, setFormData] = useState({ username: user.username, bio: user.bio || '', avatarUrl: user.avatarUrl || '' });
-    const [previewImage, setPreviewImage] = useState(user.avatarUrl || '');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const fileInputRef = useRef(null);
+    const [formData, setFormData] = useState({
+        username: user.username || '',
+        bio: user.bio || '',
+        avatarUrl: user.avatarUrl || ''
+    });
 
-    const handleFileChange = (e) => {
+    // Separate states for uploading image vs saving text
+    const [uploading, setUploading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // 1. INSTANT IMAGE UPLOAD (The Fix)
+    const handleImageChange = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-            if (file.size > 5000000) return setError("File too large (Max 5MB)");
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewImage(reader.result);
-                setFormData(p => ({ ...p, avatarUrl: reader.result }));
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        setUploading(true);
+
+        // Wrap the file in a FormData "envelope"
+        const data = new FormData();
+        data.append("file", file);
+
+        try {
+            // Send to your NEW Backend Endpoint
+            const res = await api.post(`/users/${user.id}/avatar`, data, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+
+            // Server returns the short URL (e.g., http://localhost:8080/uploads/...)
+            // Update the UI immediately to show the new picture
+            setFormData(prev => ({ ...prev, avatarUrl: res.data }));
+
+            // Also update the parent Profile page immediately so the big image changes
+            onUpdate({ ...user, avatarUrl: res.data });
+
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload image. Please try again.");
+        } finally {
+            setUploading(false);
         }
     };
 
+    // 2. TEXT ONLY UPDATE
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        setSaving(true);
         try {
-            const response = await api.put(`/users/${user.id}`, formData);
-            onUpdate(response.data);
+            // We ONLY send text here. The image is already uploaded/saved.
+            const res = await api.put(`/users/${user.id}`, {
+                username: formData.username,
+                bio: formData.bio
+            });
+            onUpdate(res.data);
             onClose();
-        } catch (err) { setError('Update failed'); } finally { setLoading(false); }
+        } catch (error) {
+            console.error("Update failed", error);
+            alert("Failed to update profile.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in border border-white/20">
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <h3 className="text-lg font-extrabold text-slate-800">Edit Profile</h3>
-                    <button onClick={onClose} className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shadow-sm">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-black text-slate-800">Edit Profile</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+                </div>
+
+                <div className="flex flex-col items-center mb-8">
+                    <div className="relative w-28 h-28 mb-4 group cursor-pointer">
+                        {/* Show the current avatarUrl (which updates instantly after upload) */}
+                        <img
+                            src={formData.avatarUrl || `https://ui-avatars.com/api/?name=${formData.username}&background=random`}
+                            alt="Avatar"
+                            className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg group-hover:opacity-75 transition-all"
+                        />
+
+                        {/* Overlay text */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="bg-black/60 text-white text-xs px-2 py-1 rounded-full font-bold">Change</span>
+                        </div>
+
+                        {/* The File Input */}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={handleImageChange}
+                            disabled={uploading}
+                        />
+
+                        {/* Spinner while uploading */}
+                        {uploading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-full">
+                                <LoadingSpinner size="sm" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Username</label>
+                        <input
+                            type="text"
+                            value={formData.username}
+                            onChange={e => setFormData({...formData, username: e.target.value})}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bio</label>
+                        <textarea
+                            value={formData.bio}
+                            onChange={e => setFormData({...formData, bio: e.target.value})}
+                            rows="3"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={saving || uploading}
+                        className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-indigo-200"
+                    >
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </button>
-                </div>
-
-                <div className="p-8">
-                    {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-bold rounded-lg border border-red-100 text-center">{error}</div>}
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="flex flex-col items-center gap-4">
-                            <div onClick={() => fileInputRef.current.click()} className="relative group cursor-pointer w-28 h-28">
-                                <div className="w-full h-full rounded-full overflow-hidden ring-4 ring-slate-50 shadow-xl group-hover:ring-indigo-100 transition-all">
-                                    {previewImage ? <img src={previewImage} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300"><svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>}
-                                </div>
-                                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-                                    <span className="text-white text-xs font-bold uppercase tracking-wider">Upload</span>
-                                </div>
-                            </div>
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Username</label>
-                                <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all font-medium"
-                                       value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Bio</label>
-                                <textarea rows="3" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all resize-none font-medium"
-                                          placeholder="Share your story..." value={formData.bio} onChange={(e) => setFormData({ ...formData, bio: e.target.value })} />
-                            </div>
-                        </div>
-
-                        <div className="pt-4 flex gap-3">
-                            <button type="button" onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                            <button type="submit" disabled={loading} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 transition-all">
-                                {loading ? <LoadingSpinner variant="button" /> : 'Save Changes'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                </form>
             </div>
         </div>
     );

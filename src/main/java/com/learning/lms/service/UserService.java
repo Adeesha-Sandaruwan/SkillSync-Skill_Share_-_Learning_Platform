@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -39,6 +40,7 @@ public class UserService {
     private final LearningPlanRepository learningPlanRepository;
     private final PlanStepRepository planStepRepository;
 
+    // Folder where images land
     private final String UPLOAD_DIR = "uploads/";
 
     public User registerUser(RegisterRequest request) {
@@ -66,14 +68,21 @@ public class UserService {
 
     public User updateUser(Long userId, UserUpdateRequest request) {
         User user = getUserById(userId);
+
+        // 1. Update Username
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             if (!user.getUsername().equals(request.getUsername()) && userRepository.existsByUsername(request.getUsername())) {
                 throw new RuntimeException("Username already taken");
             }
             user.setUsername(request.getUsername());
         }
+
+        // 2. Update Bio
         if (request.getBio() != null) user.setBio(request.getBio());
-        if (request.getAvatarUrl() != null) user.setAvatarUrl(request.getAvatarUrl());
+
+        // ❌ SECURITY FIX: We REMOVED the line that updated avatarUrl from JSON.
+        // This prevents the massive Base64 string from entering your database.
+
         return userRepository.save(user);
     }
 
@@ -82,16 +91,25 @@ public class UserService {
         try {
             User user = getUserById(userId);
 
+            // 1. Create uploads folder if not exists
             File directory = new File(UPLOAD_DIR);
             if (!directory.exists()) directory.mkdirs();
 
+            // 2. Create unique filename
             String fileName = "avatar_" + userId + "_" + UUID.randomUUID() + ".jpg";
             Path filePath = Paths.get(UPLOAD_DIR + fileName);
 
+            // 3. COMPRESS and SAVE to Disk
             byte[] compressedImage = ImageUtils.compressImage(file);
             Files.write(filePath, compressedImage);
 
-            String fileUrl = "http://localhost:8080/uploads/" + fileName;
+            // 4. Generate URL (This is what goes to DB: just a short link)
+            String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/uploads/")
+                    .path(fileName)
+                    .toUriString();
+
+            // 5. Save ONLY the Link
             user.setAvatarUrl(fileUrl);
             userRepository.save(user);
 

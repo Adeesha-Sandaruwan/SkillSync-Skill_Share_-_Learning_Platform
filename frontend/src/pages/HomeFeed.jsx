@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom'; // <--- Added Link import
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
 import ShortsViewer from '../components/ShortsViewer';
 import LoadingSpinner from '../components/LoadingSpinner';
-import SuggestionSidebar from '../components/SuggestionSidebar'; // <--- Added Sidebar import
+import SuggestionSidebar from '../components/SuggestionSidebar';
 import { useAuth } from '../context/useAuth';
 
 const HomeFeed = () => {
@@ -29,7 +29,6 @@ const HomeFeed = () => {
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef();
 
-    // Helper: Strict Video Check
     const isVideoUrl = (url) => {
         if (!url) return false;
         const lower = url.toLowerCase();
@@ -86,7 +85,7 @@ const HomeFeed = () => {
         if (node) observer.current.observe(node);
     }, [loading, hasMore]);
 
-    const handleFileSelect = async (e) => {
+    const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
         if (files.length + selectedFiles.length > 3) { alert("Max 3 files."); return; }
         const newFiles = [];
@@ -151,58 +150,48 @@ const HomeFeed = () => {
                 />
             )}
 
-            <main className="container mx-auto px-4 py-6 max-w-7xl">
-                {/* --- 3-COLUMN HOLY GRAIL LAYOUT --- */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Added pb-24 to prevent bottom nav overlap on mobile */}
+            <main className="container mx-auto px-4 py-6 max-w-7xl pb-24 md:pb-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
-                    {/* 1. LEFT COLUMN: Mini Profile & Links (Hidden on mobile) */}
-                    <div className="hidden lg:block lg:col-span-1">
+                    {/* LEFT COLUMN (Hidden on mobile) */}
+                    <div className="hidden md:block md:col-span-1">
                         <div className="sticky top-24 space-y-6">
-                            {/* Mini Profile Card */}
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center">
                                 <div className="relative w-20 h-20 mx-auto mb-3">
-                                    <img src={user?.avatarUrl} className="w-full h-full rounded-full object-cover border-2 border-indigo-50" />
+                                    <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username}`} className="w-full h-full rounded-full object-cover border-2 border-indigo-50" />
                                     <div className="absolute bottom-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
                                         Lvl {user?.level || 1}
                                     </div>
                                 </div>
                                 <h2 className="font-bold text-lg text-slate-800">{user?.username}</h2>
                                 <p className="text-xs text-slate-500 mb-4 line-clamp-1">{user?.bio || "Ready to learn!"}</p>
-
                                 <Link to={`/profile/${user?.id}`} className="block mt-4 w-full py-2 bg-slate-50 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-100 transition-colors">
                                     View Profile
                                 </Link>
                             </div>
-
-                            {/* Quick Navigation */}
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                                 <Link to="/leaderboard" className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors border-b border-slate-50">
-                                    <span className="text-xl">🏆</span>
-                                    <span className="font-bold text-slate-700 text-sm">Leaderboard</span>
+                                    <span className="text-xl">🏆</span><span className="font-bold text-slate-700 text-sm">Leaderboard</span>
                                 </Link>
                                 <Link to="/create-plan" className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors border-b border-slate-50">
-                                    <span className="text-xl">🗺️</span>
-                                    <span className="font-bold text-slate-700 text-sm">Create Roadmap</span>
+                                    <span className="text-xl">🗺️</span><span className="font-bold text-slate-700 text-sm">Create Roadmap</span>
                                 </Link>
                                 <Link to="/explore" className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                                    <span className="text-xl">🧭</span>
-                                    <span className="font-bold text-slate-700 text-sm">Explore</span>
+                                    <span className="text-xl">🧭</span><span className="font-bold text-slate-700 text-sm">Explore</span>
                                 </Link>
                             </div>
                         </div>
                     </div>
 
-                    {/* 2. CENTER COLUMN: The Feed */}
-                    <div className="lg:col-span-2">
-                        {/* Create Post UI */}
+                    {/* CENTER COLUMN (Feed) */}
+                    <div className="md:col-span-2 lg:col-span-2">
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6">
                             <form onSubmit={handleCreatePost}>
                                 <div className="flex gap-3">
-                                    <img src={user?.avatarUrl} className="w-10 h-10 rounded-full object-cover hidden sm:block" />
+                                    <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username}`} className="w-10 h-10 rounded-full object-cover hidden sm:block" />
                                     <div className="flex-1">
-                                        <textarea className="w-full p-3 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none text-sm" rows="2" placeholder={`What are you learning today, ${user?.firstname || 'friend'}?`} value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-
-                                        {/* Image Previews */}
+                                        <textarea className="w-full p-3 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none text-sm" rows="2" placeholder={`What did you learn today, ${user?.username}?`} value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                                         {previews.length > 0 && (
                                             <div className="mt-3 grid grid-cols-3 gap-2">
                                                 {previews.map((p,i) => (
@@ -213,7 +202,6 @@ const HomeFeed = () => {
                                                 ))}
                                             </div>
                                         )}
-
                                         <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-50">
                                             <button type="button" onClick={() => fileInputRef.current?.click()} className="text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"><span>📷</span> Media</button>
                                             <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleFileSelect} />
@@ -223,29 +211,21 @@ const HomeFeed = () => {
                                 </div>
                             </form>
                         </div>
-
-                        {/* Feed Tabs */}
                         <div className="flex border-b border-slate-200 mb-6 sticky top-16 bg-slate-50/95 backdrop-blur z-30 pt-2">
                             <button onClick={() => setActiveTab('global')} className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'global' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>For You</button>
                             <button onClick={() => setActiveTab('following')} className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'following' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Following</button>
                         </div>
-
-                        {/* Posts List */}
-                        <div className="space-y-6 pb-20">
+                        <div className="space-y-6">
                             {posts.map((post, index) => (
                                 <div key={post.id} ref={index === posts.length - 1 ? lastPostRef : null}>
-                                    <PostCard
-                                        post={post}
-                                        onOpenVideo={() => hasVideo(post) && openShortsViewer(post.id)}
-                                        onDeleteSuccess={() => handleDeletePost(post.id)}
-                                    />
+                                    <PostCard post={post} onOpenVideo={() => hasVideo(post) && openShortsViewer(post.id)} onDeleteSuccess={() => handleDeletePost(post.id)} />
                                 </div>
                             ))}
                             {loading && <div className="flex justify-center py-6"><LoadingSpinner /></div>}
                         </div>
                     </div>
 
-                    {/* 3. RIGHT COLUMN: Suggestions */}
+                    {/* RIGHT COLUMN (Hidden on mobile/tablet) */}
                     <div className="hidden lg:block lg:col-span-1">
                         <SuggestionSidebar />
                     </div>

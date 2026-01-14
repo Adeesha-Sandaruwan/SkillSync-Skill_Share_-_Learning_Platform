@@ -65,8 +65,9 @@ public class GoogleAuthService {
 
             return AuthenticationResponse.builder()
                     .token(jwtToken)
-                    .id(user.getId()) // <--- UPDATED
+                    .id(user.getId())
                     .username(user.getUsername())
+                    .avatarUrl(user.getAvatarUrl()) // <--- FIX: Send the avatar URL to frontend
                     .build();
 
         } catch (Exception e) {

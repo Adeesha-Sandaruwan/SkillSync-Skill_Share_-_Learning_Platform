@@ -5,6 +5,15 @@ import ReactionPopup from './ReactionPopup';
 import { useAuth } from '../context/useAuth';
 import api from '../services/api';
 
+// --- CONFIGURATION: LinkedIn Style Colors & Icons ---
+const REACTION_CONFIG = {
+    LIKE: { icon: '👍', label: 'Like', color: 'text-blue-600' },
+    LOVE: { icon: '❤️', label: 'Love', color: 'text-red-500' },
+    CELEBRATE: { icon: '👏', label: 'Celebrate', color: 'text-green-600' },
+    INSIGHTFUL: { icon: '💡', label: 'Insightful', color: 'text-amber-600' },
+    CURIOUS: { icon: '🤔', label: 'Curious', color: 'text-purple-600' }
+};
+
 const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
     const { user: currentUser } = useAuth();
     const navigate = useNavigate();
@@ -12,53 +21,52 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
     const [showComments, setShowComments] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
 
-    // Reaction List State
+    // Reaction List Modal
     const [showReactionListModal, setShowReactionListModal] = useState(false);
     const [reactedUsers, setReactedUsers] = useState([]);
     const [loadingReactedUsers, setLoadingReactedUsers] = useState(false);
 
-    // Reaction State
+    // Local State
     const [myReaction, setMyReaction] = useState(null);
     const [totalCount, setTotalCount] = useState(0);
+    const [topReactionIcons, setTopReactionIcons] = useState([]);
+
     const [isCopied, setIsCopied] = useState(false);
     const [isReposting, setIsReposting] = useState(false);
-
-    const hoverTimeoutRef = useRef(null);
-
-    // Edit State
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(post.description);
-
-    // Gallery State
     const [lightboxIndex, setLightboxIndex] = useState(null);
 
-    // Helpers
+    const hoverTimeoutRef = useRef(null);
+    const likeButtonRef = useRef(null);
+
+    // Data Extraction
     const displayPost = post.originalPost || post;
     const isRepost = !!post.originalPost;
     const postUser = post.user || {};
     const displayUser = displayPost.user || {};
-    const mediaUrls = displayPost.mediaUrls?.length > 0
-        ? displayPost.mediaUrls
-        : (displayPost.imageUrl ? [displayPost.imageUrl] : []);
+    const mediaUrls = displayPost.mediaUrls?.length > 0 ? displayPost.mediaUrls : (displayPost.imageUrl ? [displayPost.imageUrl] : []);
     const linkedPlan = displayPost.learningPlan;
     const commentCount = post.comments?.length || 0;
-
-    // Determine repost count (mock logic if backend doesn't send it, or assume 0 for now)
-    // If you add a 'repostCount' to your backend DTO later, use post.repostCount
     const repostCount = post.repostCount || 0;
 
-    // --- INITIALIZE ---
+    // --- INITIALIZE & CALCULATE STATS ---
     useEffect(() => {
         if (post.reactions) {
-            const count = Object.keys(post.reactions).length;
-            setTotalCount(count);
+            const reactionValues = Object.values(post.reactions);
+            setTotalCount(reactionValues.length);
             setMyReaction(post.reactions[currentUser?.id] || null);
+
+            // Calculate Top 3 Unique Icons for the display stack (e.g. 👍 ❤️ 💡)
+            const uniqueTypes = [...new Set(reactionValues)];
+            const topIcons = uniqueTypes.slice(0, 3).map(type => REACTION_CONFIG[type]?.icon || '👍');
+            setTopReactionIcons(topIcons);
         }
         setEditContent(post.description);
     }, [post, currentUser?.id]);
 
-    // --- KEYBOARD NAV ---
+    // --- KEYBOARD NAV FOR LIGHTBOX ---
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (lightboxIndex === null) return;
@@ -73,31 +81,16 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
     // --- HANDLERS ---
     const handleMediaClick = (url, index) => {
         const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
-        if (isVideo) {
-            if (onOpenVideo) onOpenVideo();
-        } else {
-            setLightboxIndex(index);
-        }
+        if (isVideo) { if (onOpenVideo) onOpenVideo(); } else { setLightboxIndex(index); }
     };
-
     const handleNextImage = (e) => { e?.stopPropagation(); setLightboxIndex((prev) => (prev + 1) % mediaUrls.length); };
     const handlePrevImage = (e) => { e?.stopPropagation(); setLightboxIndex((prev) => (prev - 1 + mediaUrls.length) % mediaUrls.length); };
 
     const handleShare = async () => {
         const shareUrl = `${window.location.origin}/post/${post.id}`;
-        const shareData = {
-            title: `Post by ${displayUser.username}`,
-            text: displayPost.description ? displayPost.description.substring(0, 100) + '...' : 'Check out this post on SkillSync!',
-            url: shareUrl
-        };
         try {
-            if (navigator.share) {
-                await navigator.share(shareData);
-            } else {
-                await navigator.clipboard.writeText(shareUrl);
-                setIsCopied(true);
-                setTimeout(() => setIsCopied(false), 2000);
-            }
+            if (navigator.share) await navigator.share({ title: 'SkillSync Post', url: shareUrl });
+            else { await navigator.clipboard.writeText(shareUrl); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }
         } catch (error) { console.error("Error sharing:", error); }
     };
 
@@ -108,16 +101,10 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
             const formData = new FormData();
             formData.append('userId', currentUser.id);
             formData.append('originalPostId', post.id);
-
             await api.post('/posts', formData);
             alert("Reposted successfully!");
-            if (onDeleteSuccess) onDeleteSuccess();
-        } catch (error) {
-            console.error("Repost failed", error);
-            alert("Failed to repost.");
-        } finally {
-            setIsReposting(false);
-        }
+            if (onDeleteSuccess) onDeleteSuccess(post.id); // Refresh feed
+        } catch (error) { alert("Failed to repost."); } finally { setIsReposting(false); }
     };
 
     const handleReaction = async (type) => {
@@ -127,18 +114,21 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         const newReaction = isRemoving ? null : type;
 
         setMyReaction(newReaction);
+
+        // Optimistic UI Update for Counts/Icons
         setTotalCount(prev => {
-            if (oldReaction && !newReaction) return prev - 1;
-            if (!oldReaction && newReaction) return prev + 1;
-            return prev;
+            if (oldReaction && !newReaction) return prev - 1; // Removed
+            if (!oldReaction && newReaction) return prev + 1; // Added new
+            return prev; // Changed type (count stays same)
         });
 
-        try {
-            await api.post(`/posts/${post.id}/react?userId=${currentUser.id}&type=${type}`);
-        } catch (error) {
-            setMyReaction(oldReaction);
-            setTotalCount(prev => isRemoving ? prev + 1 : prev - 1);
+        // Update stack icons locally for immediate feedback
+        if (newReaction && !topReactionIcons.includes(REACTION_CONFIG[newReaction].icon)) {
+            setTopReactionIcons(prev => [REACTION_CONFIG[newReaction].icon, ...prev].slice(0, 3));
         }
+
+        try { await api.post(`/posts/${post.id}/react?userId=${currentUser.id}&type=${type}`); }
+        catch (error) { setMyReaction(oldReaction); setTotalCount(prev => isRemoving ? prev + 1 : prev - 1); }
     };
 
     const handleShowReactors = async () => {
@@ -148,169 +138,140 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         try {
             const res = await api.get(`/posts/${post.id}/reactions`);
             setReactedUsers(res.data);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoadingReactedUsers(false);
-        }
-    };
-
-    const handleMouseEnter = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        setShowReactions(true);
-    };
-
-    const handleMouseLeave = () => {
-        hoverTimeoutRef.current = setTimeout(() => setShowReactions(false), 300);
+        } catch (error) { console.error(error); } finally { setLoadingReactedUsers(false); }
     };
 
     const handleDelete = async () => {
         if (window.confirm("Delete this post?")) {
-            try {
-                await api.delete(`/posts/${post.id}`);
-                if (onDeleteSuccess) onDeleteSuccess(post.id);
-            } catch (error) { alert("Failed to delete."); }
+            try { await api.delete(`/posts/${post.id}`); if (onDeleteSuccess) onDeleteSuccess(post.id); } catch (error) { alert("Failed to delete."); }
         }
     };
-
     const handleUpdate = async () => {
-        try {
-            await api.put(`/posts/${post.id}`, { description: editContent });
-            setIsEditing(false);
-            setIsMenuOpen(false);
-            post.description = editContent;
-        } catch (error) { alert("Failed to update."); }
+        try { await api.put(`/posts/${post.id}`, { description: editContent }); setIsEditing(false); setIsMenuOpen(false); post.description = editContent; } catch (error) { alert("Failed to update."); }
     };
 
-    const reactionIcons = { LIKE: '👍', LOVE: '❤️', CELEBRATE: '🎉', INSIGHTFUL: '💡', CURIOUS: '🤔' };
+    // Hover logic for Reaction Popup
+    const handleMouseEnter = () => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); setShowReactions(true); };
+    const handleMouseLeave = () => { hoverTimeoutRef.current = setTimeout(() => setShowReactions(false), 500); };
 
     return (
         <>
-            {/* LIGHTBOX OVERLAY */}
+            {/* LIGHTBOX */}
             {lightboxIndex !== null && (
-                <div className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in" onClick={() => setLightboxIndex(null)}>
-                    <div className="relative w-full max-w-6xl max-h-[95vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setLightboxIndex(null)} className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors p-2">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-
-                        {mediaUrls.length > 1 && (
-                            <>
-                                <button onClick={handlePrevImage} className="absolute left-2 md:-left-12 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-sm transition-all">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                                </button>
-                                <button onClick={handleNextImage} className="absolute right-2 md:-right-12 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-sm transition-all">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                                </button>
-                            </>
-                        )}
-                        <img src={mediaUrls[lightboxIndex]} className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-lg select-none" alt="Gallery" />
-                        <div className="mt-4 text-white/50 font-medium text-sm tracking-widest">{lightboxIndex + 1} / {mediaUrls.length}</div>
-                    </div>
+                <div className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center p-4 animate-fade-in" onClick={() => setLightboxIndex(null)}>
+                    <button onClick={() => setLightboxIndex(null)} className="absolute top-4 right-4 text-white/70 hover:text-white p-2"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    {mediaUrls.length > 1 && (<><button onClick={handlePrevImage} className="absolute left-4 top-1/2 -translate-y-1/2 text-white p-4 hover:bg-white/10 rounded-full"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg></button><button onClick={handleNextImage} className="absolute right-4 top-1/2 -translate-y-1/2 text-white p-4 hover:bg-white/10 rounded-full"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg></button></>)}
+                    <img src={mediaUrls[lightboxIndex]} className="max-w-full max-h-[90vh] object-contain shadow-2xl rounded-sm" alt="Gallery" onClick={e => e.stopPropagation()} />
                 </div>
             )}
 
-            {/* --- REACTION LIST MODAL --- */}
+            {/* REACTION LIST MODAL */}
             {showReactionListModal && (
-                <div className="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowReactionListModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h3 className="font-bold text-slate-800 text-lg">People who reacted</h3>
-                            <button onClick={() => setShowReactionListModal(false)} className="text-slate-400 hover:text-slate-700 font-bold text-xl">&times;</button>
+                <div className="fixed inset-0 z-[10001] bg-black/40 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowReactionListModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-white">
+                            <h3 className="font-bold text-slate-800 text-base">Reactions</h3>
+                            <button onClick={() => setShowReactionListModal(false)} className="text-slate-400 hover:text-slate-700 font-bold text-2xl leading-none">&times;</button>
                         </div>
-                        <div className="max-h-[400px] overflow-y-auto p-4 space-y-3">
+                        <div className="max-h-[400px] overflow-y-auto p-2">
                             {loadingReactedUsers ? (
-                                <div className="text-center py-6 text-slate-400">Loading...</div>
+                                <div className="p-4 text-center text-slate-400 text-sm">Loading...</div>
                             ) : reactedUsers.length > 0 ? (
                                 reactedUsers.map(user => (
-                                    <Link to={`/profile/${user.id}`} key={user.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} className="w-10 h-10 rounded-full border border-slate-200 object-cover" alt="" />
+                                    <div key={user.id} className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer" onClick={() => navigate(`/profile/${user.id}`)}>
+                                        <div className="relative">
+                                            <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} className="w-10 h-10 rounded-full border border-slate-100 object-cover" alt="" />
+                                            {/* Show the specific emoji they used */}
+                                            {user.reactionType && (
+                                                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-[10px]">
+                                                    {REACTION_CONFIG[user.reactionType]?.icon || '👍'}
+                                                </div>
+                                            )}
+                                        </div>
                                         <div>
                                             <p className="font-bold text-slate-800 text-sm">{user.username}</p>
-                                            <p className="text-xs text-slate-500 flex items-center gap-1">Level {user.level || 1} {user.reactionType && <span className="text-xs bg-slate-100 px-1 rounded">{user.reactionType}</span>}</p>
+                                            <p className="text-xs text-slate-500">{user.firstname} {user.lastname}</p>
                                         </div>
-                                    </Link>
+                                    </div>
                                 ))
                             ) : (
-                                <p className="text-center text-slate-400 py-6">No reactions yet.</p>
+                                <p className="p-4 text-center text-slate-400 text-sm">No reactions yet.</p>
                             )}
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className={`bg-white rounded-3xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 mb-8 relative group/card ${isMenuOpen || showReactions ? 'z-[100]' : 'z-0'}`}>
-                {/* Repost Header */}
+            {/* --- MAIN CARD --- */}
+            {/* REMOVED DYNAMIC Z-INDEX to prevent whole post popping up */}
+            <div className="bg-white rounded-2xl shadow-[0_0_0_1px_rgba(0,0,0,0.08)] transition-shadow duration-200 mb-4 relative overflow-visible">
+
                 {isRepost && (
-                    <div className="bg-slate-50/50 px-5 py-2 border-b border-slate-100 flex items-center gap-2 text-xs font-bold text-slate-500 rounded-t-3xl">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        <Link to={`/profile/${postUser.id}`} className="hover:text-indigo-600 transition-colors">{postUser.username}</Link> reposted
+                    <div className="px-4 py-2 border-b border-slate-50 flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-50/50 rounded-t-2xl">
+                        <svg className="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="currentColor"><path d="M17 17H7V7h10v10zm-6-8v6h2V9h-2z" /></svg>
+                        <Link to={`/profile/${postUser.id}`} className="hover:text-blue-600 hover:underline">{postUser.username}</Link> reposted this
                     </div>
                 )}
-                <div className="p-5 pb-2">
+
+                <div className="p-4 pb-2">
                     {/* Header */}
-                    <div className="flex items-start justify-between mb-4 relative">
-                        <Link to={`/profile/${displayUser.id}`} className="flex items-center gap-3 group/user">
-                            <div className="relative">
-                                <img src={displayUser.avatarUrl || `https://ui-avatars.com/api/?name=${displayUser.username}`} className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm group-hover/user:scale-105 transition-transform" />
-                            </div>
+                    <div className="flex justify-between items-start mb-3">
+                        <Link to={`/profile/${displayUser.id}`} className="flex gap-3 group">
+                            <img src={displayUser.avatarUrl || `https://ui-avatars.com/api/?name=${displayUser.username}`} className="w-12 h-12 rounded-full object-cover border border-slate-100" />
                             <div>
-                                <span className="font-bold text-slate-900 block group-hover/user:text-indigo-600 transition-colors">{displayUser.username}</span>
-                                <span className="text-xs text-slate-400 font-medium">{new Date(displayPost.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 group-hover:underline leading-tight">{displayUser.username}</h3>
+                                <p className="text-xs text-slate-500">Level {displayUser.level || 1} Member</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">{new Date(displayPost.createdAt).toLocaleDateString()} • <span className="text-[10px]">🌍</span></p>
                             </div>
                         </Link>
                         {currentUser?.id === postUser.id && (
                             <div className="relative">
-                                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1.5 text-slate-300 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-all">•••</button>
+                                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 rounded-full hover:bg-slate-100 text-slate-500">•••</button>
                                 {isMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-scale-in origin-top-right">
-                                        <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors border-b border-slate-50">✏️ Edit Post</button>
-                                        <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors">🗑️ Delete Post</button>
+                                    <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-100 z-50 py-1">
+                                        <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Edit</button>
+                                        <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-50">Delete</button>
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
-                    {/* Content */}
-                    {isEditing ? (
-                        <div className="animate-fade-in relative z-20">
-                            <textarea className="w-full border-2 border-slate-100 p-3 rounded-xl focus:border-indigo-500 focus:ring-0 outline-none transition-all resize-none text-sm font-medium" rows="3" value={editContent} onChange={e => setEditContent(e.target.value)} />
-                            <div className="flex justify-end gap-2 mt-2">
-                                <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-                                <button onClick={handleUpdate} className="px-3 py-1.5 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">Save</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-[15px] mb-4 relative z-20">{displayPost.description}</p>
-                    )}
-                    {linkedPlan && (
-                        <div onClick={() => navigate(`/plans/${linkedPlan.id}`)} className="mb-4 border border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-all group/plan bg-slate-50/50 relative z-20">
-                            <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                            <div className="p-4 flex items-center justify-between">
-                                <div>
-                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-md">Roadmap Update</span>
-                                    <h3 className="font-bold text-slate-800 text-base mt-1 group-hover/plan:text-indigo-600 transition-colors">{linkedPlan.title}</h3>
+
+                    {/* Body */}
+                    <div className="text-sm text-slate-900 whitespace-pre-wrap mb-3 leading-relaxed">
+                        {isEditing ? (
+                            <>
+                                <textarea className="w-full border p-2 rounded-lg text-sm" rows="3" value={editContent} onChange={e => setEditContent(e.target.value)} />
+                                <div className="flex justify-end gap-2 mt-2">
+                                    <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-slate-500">Cancel</button>
+                                    <button onClick={handleUpdate} className="text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded-full">Save</button>
                                 </div>
-                                <span className="text-2xl group-hover/plan:translate-x-1 transition-transform">→</span>
+                            </>
+                        ) : displayPost.description}
+                    </div>
+
+                    {linkedPlan && (
+                        <div onClick={() => navigate(`/plans/${linkedPlan.id}`)} className="mb-3 border border-slate-200 rounded-lg p-3 cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Roadmap Update</span>
+                                <h4 className="font-bold text-sm text-slate-800">{linkedPlan.title}</h4>
                             </div>
+                            <span className="text-slate-400">→</span>
                         </div>
                     )}
                 </div>
+
+                {/* Media */}
                 {mediaUrls.length > 0 && (
-                    <div className={`w-full cursor-pointer overflow-hidden relative z-20 ${showComments ? '' : 'rounded-b-3xl'} ${mediaUrls.length > 1 ? 'grid grid-cols-2 h-72' : 'h-auto max-h-[500px]'}`}>
+                    <div className={`w-full overflow-hidden cursor-pointer ${mediaUrls.length > 1 ? 'grid grid-cols-2 gap-0.5 h-72' : ''}`} onClick={() => handleMediaClick(mediaUrls[0], 0)}>
                         {mediaUrls.slice(0, 4).map((url, idx) => {
-                            const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
+                            const isVideo = url.endsWith('.mp4') || url.endsWith('.webm');
                             return (
-                                <div key={idx} className={`relative group/media overflow-hidden bg-black ${mediaUrls.length === 3 && idx === 0 ? 'row-span-2' : ''}`} onClick={() => handleMediaClick(url, idx)}>
+                                <div key={idx} className={`relative bg-black ${mediaUrls.length === 1 ? 'h-auto max-h-[500px]' : 'h-full'}`}>
                                     {isVideo ? (
-                                        <>
-                                            <video src={url} className="w-full h-full object-cover opacity-90 group-hover/media:opacity-100 transition-opacity" muted />
-                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                <div className="bg-white/20 backdrop-blur-sm p-3 rounded-full border border-white/50 shadow-xl"><svg className="w-6 h-6 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></div>
-                                            </div>
-                                        </>
+                                        <video src={url} className="w-full h-full object-cover" muted />
                                     ) : (
-                                        <img src={url} className="w-full h-full object-cover group-hover/media:scale-105 transition-transform duration-500" />
+                                        <img src={url} className="w-full h-full object-cover" />
                                     )}
                                 </div>
                             );
@@ -318,83 +279,104 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                     </div>
                 )}
 
-                {/* --- STATS BAR (LINKEDIN STYLE) --- */}
-                { (totalCount > 0 || commentCount > 0 || repostCount > 0) && (
-                    <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-500 border-b border-slate-100/50 mx-2">
-                        {/* LEFT: Reactions */}
-                        <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 hover:underline" onClick={handleShowReactors}>
-                            {totalCount > 0 && (
-                                <>
-                                    <div className="flex -space-x-1 mr-1">
-                                        <div className="bg-blue-500 rounded-full p-[2px] border border-white"><span className="text-[8px] leading-none block">👍</span></div>
-                                    </div>
-                                    <span>{totalCount}</span>
-                                </>
-                            )}
-                        </div>
-
-                        {/* RIGHT: Comments & Reposts */}
-                        <div className="flex items-center gap-2">
-                            {commentCount > 0 && (
-                                <span className="hover:text-blue-600 hover:underline cursor-pointer" onClick={() => setShowComments(!showComments)}>
-                                    {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
-                                </span>
-                            )}
-                            {commentCount > 0 && repostCount > 0 && <span>•</span>}
-                            {repostCount > 0 && (
-                                <span className="hover:text-blue-600 hover:underline cursor-pointer">
-                                    {repostCount} {repostCount === 1 ? 'repost' : 'reposts'}
-                                </span>
-                            )}
-                        </div>
+                {/* --- STATS BAR (Top of buttons) --- */}
+                <div className="px-4 py-2.5 flex items-center justify-between text-xs text-slate-500 border-b border-slate-100">
+                    {/* Reactions Stack */}
+                    <div className="flex items-center gap-1.5 cursor-pointer hover:text-blue-600 hover:underline" onClick={handleShowReactors}>
+                        {totalCount > 0 && (
+                            <>
+                                <div className="flex -space-x-1">
+                                    {/* Render Top 3 Unique Icons */}
+                                    {topReactionIcons.map((icon, i) => (
+                                        <div key={i} className="w-4 h-4 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 relative z-10" style={{ zIndex: 10 - i }}>
+                                            <span className="text-[10px]">{icon}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <span className="ml-1">{totalCount}</span>
+                            </>
+                        )}
                     </div>
-                )}
 
-                {/* --- BUTTON ACTION BAR (NO NUMBERS) --- */}
-                <div className={`px-2 py-1 flex items-center justify-between mt-1 relative z-30 ${mediaUrls.length === 0 ? 'rounded-b-3xl' : ''}`}>
+                    {/* Counts */}
+                    <div className="flex gap-2">
+                        {commentCount > 0 && <span className="hover:text-blue-600 hover:underline cursor-pointer" onClick={() => setShowComments(!showComments)}>{commentCount} comments</span>}
+                        {commentCount > 0 && repostCount > 0 && <span>•</span>}
+                        {repostCount > 0 && <span>{repostCount} reposts</span>}
+                    </div>
+                </div>
 
-                    {/* Like Button */}
-                    <div className="relative flex-1" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                {/* --- ACTION BUTTONS (Bottom) --- */}
+                <div className="px-1 sm:px-2 py-1 flex justify-between items-center relative overflow-visible">
+                    {/* 1. Like Button with Popover - MOBILE & DESKTOP COMPATIBLE */}
+                    <div
+                        ref={likeButtonRef}
+                        className="relative flex-1"
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                        onTouchStart={(e) => {
+                            e.preventDefault();
+                            setShowReactions(true);
+                        }}
+                        onTouchEnd={() => {
+                            setTimeout(() => setShowReactions(false), 3000);
+                        }}
+                    >
+                        {/* Reaction Popover */}
                         {showReactions && (
-                            <div className="absolute bottom-full left-4 mb-2 z-[102] animate-scale-in origin-bottom-left shadow-xl rounded-full bg-white p-1 border border-slate-100 flex gap-1">
-                                <ReactionPopup onSelect={handleReaction} />
-                            </div>
+                            <>
+                                {/* Backdrop for mobile - tap outside to close */}
+                                <div
+                                    className="fixed inset-0 z-[998] md:hidden"
+                                    onClick={() => setShowReactions(false)}
+                                />
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[999] animate-scale-in origin-bottom" style={{ minWidth: 'max-content' }}>
+                                    <ReactionPopup onSelect={handleReaction} />
+                                </div>
+                            </>
                         )}
                         <button
                             onClick={() => handleReaction(myReaction || 'LIKE')}
-                            className={`w-full group flex items-center justify-center gap-2 px-2 py-3 rounded-lg font-bold text-sm transition-all duration-200 active:bg-slate-100
-                                ${myReaction
-                                ? 'text-blue-600'
-                                : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'
-                            }
+                            className={`w-full flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-1 rounded-md transition-colors hover:bg-slate-100 
+                                ${myReaction ? REACTION_CONFIG[myReaction].color : 'text-slate-500'}
                             `}
                         >
-                            <span className={`text-xl transition-transform ${myReaction ? 'scale-110' : 'group-hover:scale-110'}`}>
-                                {myReaction ? reactionIcons[myReaction] : '👍'}
+                            {/* Show Specific Icon if Reacted, else Default Thumb */}
+                            <span className={`text-lg transition-transform ${myReaction ? 'scale-110' : ''}`}>
+                                {myReaction ? REACTION_CONFIG[myReaction].icon : <svg className="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a2.25 2.25 0 012.25 2.25V7.38a2.25 2.25 0 11-4.5 0 .219.219 0 00-.36-.176 9.19 9.19 0 00-3.07 7.293v.379" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5v10.5H7.5V10.5h12zm-12 0v10.5H4.5V10.5h3z" /></svg>}
                             </span>
-                            <span className="hidden sm:inline">Like</span>
+                            {/* Text Hidden on Mobile */}
+                            <span className="font-semibold text-sm hidden sm:inline">
+                                {myReaction ? REACTION_CONFIG[myReaction].label : 'Like'}
+                            </span>
                         </button>
                     </div>
 
-                    {/* Comment Button */}
-                    <button onClick={() => setShowComments(!showComments)} className="flex-1 flex items-center justify-center gap-2 px-2 py-3 rounded-lg font-bold text-sm text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-all active:bg-slate-100">
-                        <span className="text-xl">💬</span><span className="hidden sm:inline">Comment</span>
+                    {/* 2. Comment Button */}
+                    <button onClick={() => setShowComments(!showComments)} className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-1 rounded-md text-slate-500 hover:bg-slate-100 font-semibold text-sm transition-colors">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
+                        <span className="hidden sm:inline">Comment</span>
                     </button>
 
-                    {/* Repost Button */}
-                    <button onClick={handleRepost} className="flex-1 flex items-center justify-center gap-2 px-2 py-3 rounded-lg font-bold text-sm text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-all active:bg-slate-100" disabled={isReposting}>
-                        <span className="text-xl">🔄</span><span className="hidden sm:inline">Repost</span>
+                    {/* 3. Repost Button */}
+                    <button onClick={handleRepost} className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-1 rounded-md text-slate-500 hover:bg-slate-100 font-semibold text-sm transition-colors" disabled={isReposting}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" /></svg>
+                        <span className="hidden sm:inline">Repost</span>
                     </button>
 
-                    {/* Share Button (Icon Only) */}
-                    <button onClick={handleShare} className="flex-none p-3 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100/50 transition-all" title="Share">
-                        {isCopied ? <span className="text-xs font-bold text-green-600">Copied</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
+                    {/* 4. Share Button */}
+                    <button onClick={handleShare} className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-3 px-1 rounded-md text-slate-500 hover:bg-slate-100 font-semibold text-sm transition-colors">
+                        {isCopied ? <span className="text-green-600 font-bold text-xs">Copied</span> : (
+                            <>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                                <span className="hidden sm:inline">Send</span>
+                            </>
+                        )}
                     </button>
                 </div>
 
-                {/* Comments Section */}
                 {showComments && (
-                    <div className="border-t border-slate-100 bg-slate-50/30 animate-fade-in rounded-b-3xl relative z-20">
+                    <div className="animate-fade-in bg-slate-50/50 pt-2">
                         <CommentSection postId={post.id} postOwnerId={postUser.id} />
                     </div>
                 )}

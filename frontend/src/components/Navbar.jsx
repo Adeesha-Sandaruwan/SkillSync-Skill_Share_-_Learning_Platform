@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import NotificationDropdown from './NotificationDropdown';
-import api, { getPublicPlans } from '../services/api'; // Ensure getPublicPlans is exported from api.js
+import api, { getPublicPlans } from '../services/api';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -97,12 +97,13 @@ const Navbar = () => {
                         </span>
                     </Link>
 
-                    {/* --- SMART SEARCH BAR --- */}
-                    <div className="flex-1 max-w-md mx-4 hidden sm:block relative" ref={searchRef}>
+                    {/* --- SMART SEARCH BAR (Visible on ALL Screens Now) --- */}
+                    {/* FIXED: Removed 'hidden sm:block' so it shows on mobile. Adjusted margins for mobile. */}
+                    <div className="flex-1 max-w-md mx-2 sm:mx-4 relative" ref={searchRef}>
                         <form onSubmit={handleSearchSubmit} className="relative group">
                             <input
                                 type="text"
-                                placeholder="Search people, roadmaps..."
+                                placeholder="Search..."
                                 className={`w-full pl-10 pr-4 py-2.5 bg-slate-100 border-2 border-transparent text-sm font-medium text-slate-700 transition-all focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none ${showSuggestions ? 'rounded-t-2xl' : 'rounded-full'}`}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -149,7 +150,7 @@ const Navbar = () => {
                                         {suggestions.plans.map(plan => (
                                             <div
                                                 key={plan.id}
-                                                onClick={() => handleSuggestionClick(`/plans/${plan.id}`)} // Or whatever your plan detail route is
+                                                onClick={() => handleSuggestionClick(`/plans/${plan.id}`)}
                                                 className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors"
                                             >
                                                 <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-lg">🗺️</div>

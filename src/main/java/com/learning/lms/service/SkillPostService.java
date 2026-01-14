@@ -33,6 +33,7 @@ public class SkillPostService {
     private final NotificationService notificationService;
     private final LearningPlanRepository learningPlanRepository;
 
+    // ... (Other methods remain unchanged: getAllPosts, getFollowingPosts, getUserPosts, createSimplePost, createPost) ...
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository.findAllPosts(pageable).getContent();
@@ -48,21 +49,15 @@ public class SkillPostService {
         return postRepository.findByUserId(userId, pageable).getContent();
     }
 
-    // --- NEW: CREATE SIMPLE UPDATE (For Profile Progress Tab) ---
     @Transactional
     public SkillPost createSimplePost(Long userId, String content, String type) {
         User user = userRepository.findById(userId).orElseThrow();
         SkillPost post = new SkillPost();
-
-        // We prepend the Type (e.g., [MILESTONE]) to the description
-        // This allows us to filter them easily later without changing DB schema
         String formattedContent = type != null ? "[" + type + "] " + content : content;
-
         post.setDescription(formattedContent);
         post.setUser(user);
         return postRepository.save(post);
     }
-    // ------------------------------------------------------------
 
     @Transactional
     public SkillPost createPost(Long userId, String description, List<MultipartFile> mediaFiles, Long originalPostId, Long learningPlanId) {
@@ -99,19 +94,35 @@ public class SkillPostService {
         return postRepository.save(post);
     }
 
+    // --- FIX: Ensure strict reaction toggling logic ---
     @Transactional
     public SkillPost reactToPost(Long postId, Long userId, ReactionType type) {
         SkillPost post = postRepository.findById(postId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow();
-        if (post.getReactions().containsKey(userId) && post.getReactions().get(userId) == type) {
-            post.getReactions().remove(userId);
+
+        // 1. Check if user already reacted
+        if (post.getReactions().containsKey(userId)) {
+            ReactionType existingType = post.getReactions().get(userId);
+
+            if (existingType == type) {
+                // Clicking SAME reaction -> Remove it (Toggle OFF)
+                post.getReactions().remove(userId);
+            } else {
+                // Clicking DIFFERENT reaction -> Switch it (Update)
+                post.getReactions().put(userId, type);
+            }
         } else {
+            // New Reaction -> Add it
             post.getReactions().put(userId, type);
+
+            // Notification logic (only for new reactions to avoid spam)
             if (!post.getUser().getId().equals(userId)) {
                 notificationService.createNotification(post.getUser(), user, NotificationType.LIKE, "reacted " + type + " to your post", post.getId());
             }
         }
-        return postRepository.save(post);
+
+        // Force save and return updated entity
+        return postRepository.saveAndFlush(post);
     }
 
     @Transactional

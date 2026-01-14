@@ -71,7 +71,6 @@ public class SkillPostService {
 
         if (originalPostId != null) {
             SkillPost original = postRepository.findById(originalPostId).orElseThrow();
-            // If reposting a repost, link to the absolute original to avoid chains
             post.setOriginalPost(original.getOriginalPost() != null ? original.getOriginalPost() : original);
         }
 
@@ -119,6 +118,7 @@ public class SkillPostService {
         return postRepository.saveAndFlush(post);
     }
 
+    // --- LOGIC TO GET REACTORS ---
     @Transactional(readOnly = true)
     public List<UserSummaryDto> getPostReactions(Long postId) {
         SkillPost post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
@@ -128,9 +128,6 @@ public class SkillPostService {
 
         List<User> users = userRepository.findAllById(reactions.keySet());
 
-        // Map users to DTOs and include the reaction type logic if needed
-        // For now, we return the user details. The frontend can match types if we extended the DTO,
-        // but typically just showing "Who reacted" is sufficient.
         return users.stream().map(user -> UserSummaryDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -138,7 +135,7 @@ public class SkillPostService {
                 .lastname(user.getLastname())
                 .avatarUrl(user.getAvatarUrl())
                 .level(user.getLevel())
-                // We could add a 'reaction' field to UserSummaryDto if you strictly need to see WHICH reaction they used in the list
+                .reactionType(reactions.get(user.getId()).name()) // Show what they reacted with
                 .build()
         ).collect(Collectors.toList());
     }

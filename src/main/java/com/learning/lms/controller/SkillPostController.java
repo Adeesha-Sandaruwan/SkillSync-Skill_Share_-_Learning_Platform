@@ -61,12 +61,11 @@ public class SkillPostController {
         return ResponseEntity.ok(postService.reactToPost(postId, userId, type));
     }
 
-    // --- NEW: Get who reacted to a post ---
+    // --- ENDPOINT TO FETCH REACTIONS ---
     @GetMapping("/{postId}/reactions")
     public ResponseEntity<List<UserSummaryDto>> getPostReactions(@PathVariable Long postId) {
         return ResponseEntity.ok(postService.getPostReactions(postId));
     }
-    // --------------------------------------
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> deletePost(@PathVariable Long postId) {

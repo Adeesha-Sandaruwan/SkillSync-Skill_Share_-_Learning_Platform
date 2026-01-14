@@ -42,6 +42,11 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         ? displayPost.mediaUrls
         : (displayPost.imageUrl ? [displayPost.imageUrl] : []);
     const linkedPlan = displayPost.learningPlan;
+    const commentCount = post.comments?.length || 0;
+
+    // Determine repost count (mock logic if backend doesn't send it, or assume 0 for now)
+    // If you add a 'repostCount' to your backend DTO later, use post.repostCount
+    const repostCount = post.repostCount || 0;
 
     // --- INITIALIZE ---
     useEffect(() => {
@@ -100,14 +105,13 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         if (!window.confirm("Repost this to your feed?")) return;
         setIsReposting(true);
         try {
-            // Repost API call
             const formData = new FormData();
             formData.append('userId', currentUser.id);
-            formData.append('originalPostId', post.id); // Reference the current post ID
+            formData.append('originalPostId', post.id);
 
             await api.post('/posts', formData);
             alert("Reposted successfully!");
-            if (onDeleteSuccess) onDeleteSuccess(); // Triggers refresh in parent
+            if (onDeleteSuccess) onDeleteSuccess();
         } catch (error) {
             console.error("Repost failed", error);
             alert("Failed to repost.");
@@ -137,7 +141,6 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         }
     };
 
-    // --- NEW: Fetch List of Reactors ---
     const handleShowReactors = async () => {
         if (totalCount === 0) return;
         setShowReactionListModal(true);
@@ -221,10 +224,10 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                             ) : reactedUsers.length > 0 ? (
                                 reactedUsers.map(user => (
                                     <Link to={`/profile/${user.id}`} key={user.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} className="w-10 h-10 rounded-full border border-slate-200" alt="" />
+                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} className="w-10 h-10 rounded-full border border-slate-200 object-cover" alt="" />
                                         <div>
                                             <p className="font-bold text-slate-800 text-sm">{user.username}</p>
-                                            <p className="text-xs text-slate-500">Level {user.level || 1}</p>
+                                            <p className="text-xs text-slate-500 flex items-center gap-1">Level {user.level || 1} {user.reactionType && <span className="text-xs bg-slate-100 px-1 rounded">{user.reactionType}</span>}</p>
                                         </div>
                                     </Link>
                                 ))
@@ -293,7 +296,6 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                         </div>
                     )}
                 </div>
-                {/* Media Grid */}
                 {mediaUrls.length > 0 && (
                     <div className={`w-full cursor-pointer overflow-hidden relative z-20 ${showComments ? '' : 'rounded-b-3xl'} ${mediaUrls.length > 1 ? 'grid grid-cols-2 h-72' : 'h-auto max-h-[500px]'}`}>
                         {mediaUrls.slice(0, 4).map((url, idx) => {
@@ -315,42 +317,81 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                         })}
                     </div>
                 )}
-                {/* Action Bar */}
-                <div className={`px-5 py-3 border-t border-slate-100/50 flex items-center justify-between mt-2 relative z-30 ${mediaUrls.length === 0 ? 'rounded-b-3xl' : ''}`}>
-                    <div className="flex gap-1 relative">
-                        {/* Reaction */}
-                        <div className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                            {showReactions && (
-                                <div className="absolute bottom-full left-0 mb-3 z-[102] animate-scale-in origin-bottom-left shadow-2xl rounded-full">
-                                    <ReactionPopup onSelect={handleReaction} />
-                                </div>
+
+                {/* --- STATS BAR (LINKEDIN STYLE) --- */}
+                { (totalCount > 0 || commentCount > 0 || repostCount > 0) && (
+                    <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-500 border-b border-slate-100/50 mx-2">
+                        {/* LEFT: Reactions */}
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-blue-600 hover:underline" onClick={handleShowReactors}>
+                            {totalCount > 0 && (
+                                <>
+                                    <div className="flex -space-x-1 mr-1">
+                                        <div className="bg-blue-500 rounded-full p-[2px] border border-white"><span className="text-[8px] leading-none block">👍</span></div>
+                                    </div>
+                                    <span>{totalCount}</span>
+                                </>
                             )}
-                            <button onClick={() => handleReaction(myReaction || 'LIKE')} className={`group flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-all duration-200 active:scale-95 ${myReaction ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`}>
-                                <span className={`text-xl transition-transform ${myReaction ? 'scale-110' : 'group-hover:scale-110'}`}>{myReaction ? reactionIcons[myReaction] : '👍'}</span>
-                                {/* --- UPDATED: Click to show list --- */}
-                                <span
-                                    onClick={(e) => { e.stopPropagation(); handleShowReactors(); }}
-                                    className={`${totalCount > 0 ? 'opacity-100' : 'opacity-0'} transition-opacity bg-slate-200/50 px-2 py-0.5 rounded-md text-xs hover:bg-slate-300 cursor-pointer`}
-                                    title="See who reacted"
-                                >
-                                    {totalCount}
-                                </span>
-                            </button>
                         </div>
 
-                        <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95">
-                            <span className="text-xl">💬</span><span className="hidden sm:inline">Comment</span>{post.comments?.length > 0 && <span className="bg-slate-100 px-2 py-0.5 rounded-md text-xs">{post.comments.length}</span>}
-                        </button>
+                        {/* RIGHT: Comments & Reposts */}
+                        <div className="flex items-center gap-2">
+                            {commentCount > 0 && (
+                                <span className="hover:text-blue-600 hover:underline cursor-pointer" onClick={() => setShowComments(!showComments)}>
+                                    {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+                                </span>
+                            )}
+                            {commentCount > 0 && repostCount > 0 && <span>•</span>}
+                            {repostCount > 0 && (
+                                <span className="hover:text-blue-600 hover:underline cursor-pointer">
+                                    {repostCount} {repostCount === 1 ? 'repost' : 'reposts'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
 
-                        {/* --- NEW: REPOST BUTTON --- */}
-                        <button onClick={handleRepost} className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95" disabled={isReposting}>
-                            <span className="text-xl">🔄</span><span className="hidden sm:inline">Repost</span>
+                {/* --- BUTTON ACTION BAR (NO NUMBERS) --- */}
+                <div className={`px-2 py-1 flex items-center justify-between mt-1 relative z-30 ${mediaUrls.length === 0 ? 'rounded-b-3xl' : ''}`}>
+
+                    {/* Like Button */}
+                    <div className="relative flex-1" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                        {showReactions && (
+                            <div className="absolute bottom-full left-4 mb-2 z-[102] animate-scale-in origin-bottom-left shadow-xl rounded-full bg-white p-1 border border-slate-100 flex gap-1">
+                                <ReactionPopup onSelect={handleReaction} />
+                            </div>
+                        )}
+                        <button
+                            onClick={() => handleReaction(myReaction || 'LIKE')}
+                            className={`w-full group flex items-center justify-center gap-2 px-2 py-3 rounded-lg font-bold text-sm transition-all duration-200 active:bg-slate-100
+                                ${myReaction
+                                ? 'text-blue-600'
+                                : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'
+                            }
+                            `}
+                        >
+                            <span className={`text-xl transition-transform ${myReaction ? 'scale-110' : 'group-hover:scale-110'}`}>
+                                {myReaction ? reactionIcons[myReaction] : '👍'}
+                            </span>
+                            <span className="hidden sm:inline">Like</span>
                         </button>
                     </div>
-                    <button onClick={handleShare} className={`p-2 rounded-full transition-all active:scale-95 ${isCopied ? 'bg-green-50 text-green-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`} title="Share Post">
-                        {isCopied ? <span className="text-xs font-bold px-2">Copied!</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
+
+                    {/* Comment Button */}
+                    <button onClick={() => setShowComments(!showComments)} className="flex-1 flex items-center justify-center gap-2 px-2 py-3 rounded-lg font-bold text-sm text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-all active:bg-slate-100">
+                        <span className="text-xl">💬</span><span className="hidden sm:inline">Comment</span>
+                    </button>
+
+                    {/* Repost Button */}
+                    <button onClick={handleRepost} className="flex-1 flex items-center justify-center gap-2 px-2 py-3 rounded-lg font-bold text-sm text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-all active:bg-slate-100" disabled={isReposting}>
+                        <span className="text-xl">🔄</span><span className="hidden sm:inline">Repost</span>
+                    </button>
+
+                    {/* Share Button (Icon Only) */}
+                    <button onClick={handleShare} className="flex-none p-3 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100/50 transition-all" title="Share">
+                        {isCopied ? <span className="text-xs font-bold text-green-600">Copied</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
                     </button>
                 </div>
+
                 {/* Comments Section */}
                 {showComments && (
                     <div className="border-t border-slate-100 bg-slate-50/30 animate-fade-in rounded-b-3xl relative z-20">

@@ -19,7 +19,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager; // Standard Spring Security Auth
+    private final AuthenticationManager authenticationManager;
 
     public AuthenticationResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
@@ -43,21 +43,16 @@ public class AuthService {
 
         return AuthenticationResponse.builder()
                 .token(jwtToken)
-                .userId(user.getId())
+                .id(user.getId()) // <--- UPDATED
                 .username(user.getUsername())
                 .build();
     }
 
     public AuthenticationResponse login(LoginRequest request) {
-        // Authenticate using Spring Security Manager
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
 
-        // If no exception is thrown, user is valid
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -65,7 +60,7 @@ public class AuthService {
 
         return AuthenticationResponse.builder()
                 .token(jwtToken)
-                .userId(user.getId())
+                .id(user.getId()) // <--- UPDATED
                 .username(user.getUsername())
                 .build();
     }

@@ -22,7 +22,7 @@ import java.util.UUID;
 public class GoogleAuthService {
 
     private final UserRepository userRepository;
-    private final JwtService jwtService; // Ensure you have this from your existing auth logic
+    private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
@@ -31,7 +31,6 @@ public class GoogleAuthService {
     @Transactional
     public AuthenticationResponse authenticateGoogleUser(String idTokenString) {
         try {
-            // 1. Verify Token with Google
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
                     .setAudience(Collections.singletonList(clientId))
                     .build();
@@ -44,12 +43,11 @@ public class GoogleAuthService {
             String name = (String) payload.get("name");
             String pictureUrl = (String) payload.get("picture");
 
-            // 2. Check if user exists, if not -> Register
             User user = userRepository.findByEmail(email).orElseGet(() -> {
                 User newUser = new User();
                 newUser.setEmail(email);
-                // Generate a unique username based on email or random UUID
-                String baseName = email.split("@")[0];
+                // Generate safe username
+                String baseName = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "");
                 String uniqueUsername = baseName + "_" + UUID.randomUUID().toString().substring(0, 4);
 
                 newUser.setUsername(uniqueUsername);
@@ -58,18 +56,16 @@ public class GoogleAuthService {
                 newUser.setLevel(1);
                 newUser.setXp(0);
                 newUser.getBadges().add("NOVICE");
-
-                // Set a random strong password (user won't use it, they use Google)
                 newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
 
                 return userRepository.save(newUser);
             });
 
-            // 3. Generate JWT
             String jwtToken = jwtService.generateToken(user);
+
             return AuthenticationResponse.builder()
                     .token(jwtToken)
-                    .userId(user.getId())
+                    .id(user.getId()) // <--- UPDATED
                     .username(user.getUsername())
                     .build();
 

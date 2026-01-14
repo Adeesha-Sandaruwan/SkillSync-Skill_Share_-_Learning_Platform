@@ -2,13 +2,18 @@ import { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
+// 1. Import Google Components
+import { GoogleLogin } from '@react-oauth/google';
+import api from '../services/api';
 
 const Register = () => {
     const [formData, setFormData] = useState({ username: '', email: '', password: '' });
     const [errors, setErrors] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     const [apiError, setApiError] = useState('');
-    const { register } = useAuth();
+
+    // 2. Destructure setAuth to save Google Token
+    const { register, setAuth } = useAuth();
     const navigate = useNavigate();
 
     const validate = () => {
@@ -39,6 +44,30 @@ const Register = () => {
         const { name, value } = e.target;
         setFormData(p => ({ ...p, [name]: value }));
         if (errors[name]) setErrors(p => ({ ...p, [name]: '' }));
+    };
+
+    // 3. Handle Google Success (Identical to Login)
+    const handleGoogleSuccess = async (credentialResponse) => {
+        setIsLoading(true);
+        setApiError('');
+        try {
+            const res = await api.post('/auth/google', { token: credentialResponse.credential });
+            if (res.data.token) {
+                localStorage.setItem('token', res.data.token);
+                localStorage.setItem('user', JSON.stringify(res.data));
+
+                if (setAuth) {
+                    setAuth({ token: res.data.token, user: res.data });
+                    navigate('/'); // Go straight to home after registering
+                } else {
+                    window.location.href = '/';
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            setApiError("Google Registration Failed. Please try again.");
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -78,6 +107,25 @@ const Register = () => {
                         {isLoading ? <LoadingSpinner variant="button" /> : 'Sign Up'}
                     </button>
                 </form>
+
+                {/* 4. Google Button Section */}
+                <div className="mt-6">
+                    <div className="relative mb-6">
+                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+                        <div className="relative flex justify-center text-sm"><span className="px-2 bg-white/0 text-slate-400 font-medium bg-white/50 backdrop-blur-sm">Or register with</span></div>
+                    </div>
+
+                    <div className="flex justify-center">
+                        <GoogleLogin
+                            onSuccess={handleGoogleSuccess}
+                            onError={() => setApiError("Google Registration Failed")}
+                            theme="filled_blue"
+                            shape="pill"
+                            text="signup_with"
+                            width="320"
+                        />
+                    </div>
+                </div>
 
                 <div className="mt-8 text-center text-sm text-slate-500">
                     Already have an account?{' '}

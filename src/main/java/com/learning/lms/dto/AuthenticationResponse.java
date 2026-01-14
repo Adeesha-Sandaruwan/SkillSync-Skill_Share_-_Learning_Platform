@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AuthenticationResponse {
     private String token;
-    private Long userId;
+    private Long id; // <--- CHANGED from 'userId' to 'id' to match Frontend expectations
     private String username;
-    private String role; // Optional: If you use roles
+    private String role;
 }

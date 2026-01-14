@@ -3,6 +3,7 @@ package com.learning.lms.service;
 import com.learning.lms.dto.LoginRequest;
 import com.learning.lms.dto.RegisterRequest;
 import com.learning.lms.dto.UserStatsResponse;
+import com.learning.lms.dto.UserSummaryDto; // <--- Import this
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.enums.NotificationType;
@@ -27,6 +28,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors; // <--- Import for streaming
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +42,6 @@ public class UserService {
     private final LearningPlanRepository learningPlanRepository;
     private final PlanStepRepository planStepRepository;
 
-    // Folder where images land
     private final String UPLOAD_DIR = "uploads/";
 
     public User registerUser(RegisterRequest request) {
@@ -68,21 +69,13 @@ public class UserService {
 
     public User updateUser(Long userId, UserUpdateRequest request) {
         User user = getUserById(userId);
-
-        // 1. Update Username
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             if (!user.getUsername().equals(request.getUsername()) && userRepository.existsByUsername(request.getUsername())) {
                 throw new RuntimeException("Username already taken");
             }
             user.setUsername(request.getUsername());
         }
-
-        // 2. Update Bio
         if (request.getBio() != null) user.setBio(request.getBio());
-
-        // ❌ SECURITY FIX: We REMOVED the line that updated avatarUrl from JSON.
-        // This prevents the massive Base64 string from entering your database.
-
         return userRepository.save(user);
     }
 
@@ -90,29 +83,15 @@ public class UserService {
     public String uploadAvatar(Long userId, MultipartFile file) {
         try {
             User user = getUserById(userId);
-
-            // 1. Create uploads folder if not exists
             File directory = new File(UPLOAD_DIR);
             if (!directory.exists()) directory.mkdirs();
-
-            // 2. Create unique filename
             String fileName = "avatar_" + userId + "_" + UUID.randomUUID() + ".jpg";
             Path filePath = Paths.get(UPLOAD_DIR + fileName);
-
-            // 3. COMPRESS and SAVE to Disk
             byte[] compressedImage = ImageUtils.compressImage(file);
             Files.write(filePath, compressedImage);
-
-            // 4. Generate URL (This is what goes to DB: just a short link)
-            String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/uploads/")
-                    .path(fileName)
-                    .toUriString();
-
-            // 5. Save ONLY the Link
+            String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path("/uploads/").path(fileName).toUriString();
             user.setAvatarUrl(fileUrl);
             userRepository.save(user);
-
             return fileUrl;
         } catch (Exception e) {
             throw new RuntimeException("Failed to upload avatar: " + e.getMessage());
@@ -124,15 +103,10 @@ public class UserService {
         if (followerId.equals(targetUserId)) throw new RuntimeException("You cannot follow yourself");
         User follower = getUserById(followerId);
         User target = getUserById(targetUserId);
-
         follower.follow(target);
         userRepository.save(follower);
-
         awardXp(followerId, 5);
-
-        notificationService.createNotification(
-                target, follower, NotificationType.FOLLOW, "started following you.", null
-        );
+        notificationService.createNotification(target, follower, NotificationType.FOLLOW, "started following you.", null);
     }
 
     @Transactional
@@ -149,16 +123,36 @@ public class UserService {
         return follower.getFollowing().contains(target);
     }
 
+    // --- FIX: Added Missing Method ---
+    @Transactional(readOnly = true)
+    public List<UserSummaryDto> getFollowing(Long userId) {
+        User user = getUserById(userId);
+        return user.getFollowing().stream()
+                .map(this::mapToUserDto)
+                .collect(Collectors.toList());
+    }
+
+    // --- Helper Mapper ---
+    private UserSummaryDto mapToUserDto(User user) {
+        return UserSummaryDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .firstname(user.getFirstname())
+                .lastname(user.getLastname())
+                .avatarUrl(user.getAvatarUrl())
+                .level(user.getLevel())
+                .build();
+    }
+    // ----------------------------------
+
     @Transactional(readOnly = true)
     public UserStatsResponse getUserStats(Long userId) {
         int postCount = skillPostRepository.countByUserId(userId);
-        int likeCount = skillPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .mapToInt(p -> p.getReactions().size()).sum();
+        int likeCount = skillPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream().mapToInt(p -> p.getReactions().size()).sum();
         int planCount = 0;
         try { planCount = learningPlanRepository.findByUserId(userId).size(); } catch (Exception e) {}
         int stepsCompleted = 0;
         try { stepsCompleted = planStepRepository.countCompletedStepsByUserId(userId); } catch (Exception e) {}
-
         User user = getUserById(userId);
         return new UserStatsResponse(postCount, likeCount, planCount, stepsCompleted, user.getFollowers().size(), user.getFollowing().size());
     }
@@ -167,22 +161,11 @@ public class UserService {
     public void awardXp(Long userId, int amount) {
         User user = getUserById(userId);
         user.setXp(user.getXp() + amount);
-
         int newLevel = (user.getXp() / 100) + 1;
-        if (newLevel > user.getLevel()) {
-            user.setLevel(newLevel);
-        }
-
-        if (user.getXp() >= 50 && !user.getBadges().contains("APPRENTICE")) {
-            user.getBadges().add("APPRENTICE");
-        }
-        if (user.getXp() >= 500 && !user.getBadges().contains("MASTER")) {
-            user.getBadges().add("MASTER");
-        }
-        if (user.getFollowers().size() >= 5 && !user.getBadges().contains("SOCIALITE")) {
-            user.getBadges().add("SOCIALITE");
-        }
-
+        if (newLevel > user.getLevel()) user.setLevel(newLevel);
+        if (user.getXp() >= 50 && !user.getBadges().contains("APPRENTICE")) user.getBadges().add("APPRENTICE");
+        if (user.getXp() >= 500 && !user.getBadges().contains("MASTER")) user.getBadges().add("MASTER");
+        if (user.getFollowers().size() >= 5 && !user.getBadges().contains("SOCIALITE")) user.getBadges().add("SOCIALITE");
         userRepository.save(user);
     }
 

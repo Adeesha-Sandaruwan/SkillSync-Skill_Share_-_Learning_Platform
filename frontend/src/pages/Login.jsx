@@ -2,24 +2,62 @@ import { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { GoogleLogin } from '@react-oauth/google';
+import api from '../services/api';
 
 const Login = () => {
+    // 1. State Hooks
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const { login } = useAuth();
+
+    // 2. Context & Router Hooks
+    const { login, setAuth } = useAuth(); // Ensure setAuth is exposed in your Context
     const navigate = useNavigate();
 
+    // 3. Define handleSubmit (This was missing causing the crash)
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
+            // Standard Username/Password Login
             await login(formData.username, formData.password);
             navigate('/');
         } catch (err) {
-            setError('Invalid credentials.');
+            console.error("Login Error:", err);
+            setError(err.response?.data?.message || 'Invalid credentials.');
         } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 4. Define Google Success Handler
+    const handleGoogleSuccess = async (credentialResponse) => {
+        setIsLoading(true);
+        setError('');
+        try {
+            // Send Google ID Token to Backend
+            const res = await api.post('/auth/google', {
+                token: credentialResponse.credential
+            });
+
+            // If success, save token and update Auth Context
+            if (res.data.token) {
+                localStorage.setItem('token', res.data.token);
+                localStorage.setItem('user', JSON.stringify(res.data));
+
+                // If setAuth exists in context, use it. Otherwise reload.
+                if (setAuth) {
+                    setAuth({ token: res.data.token, user: res.data });
+                    navigate('/');
+                } else {
+                    window.location.href = '/';
+                }
+            }
+        } catch (err) {
+            console.error("Google Auth Error:", err);
+            setError("Google Login Failed. Please try again.");
             setIsLoading(false);
         }
     };
@@ -45,25 +83,61 @@ const Login = () => {
                         </div>
                     )}
 
+                    {/* Standard Login Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="group">
                             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 group-focus-within:text-indigo-600 transition-colors">Username</label>
-                            <input type="text" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                                   placeholder="Enter your username" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
+                            <input
+                                type="text"
+                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                                placeholder="Enter your username"
+                                value={formData.username}
+                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                required
+                            />
                         </div>
 
                         <div className="group">
                             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 group-focus-within:text-indigo-600 transition-colors">Password</label>
-                            <input type="password" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                                   placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                            <input
+                                type="password"
+                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                                placeholder="••••••••"
+                                value={formData.password}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                required
+                            />
                         </div>
 
-                        <button type="submit" disabled={isLoading} className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 active:scale-95 ${
-                            isLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                        }`}>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 active:scale-95 ${
+                                isLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                            }`}
+                        >
                             {isLoading ? <LoadingSpinner variant="button" /> : 'Sign In'}
                         </button>
                     </form>
+
+                    {/* Google Login Section */}
+                    <div className="mt-8">
+                        <div className="relative mb-6">
+                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+                            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white/0 text-slate-400 font-medium bg-white">Or continue with</span></div>
+                        </div>
+
+                        <div className="flex justify-center">
+                            <GoogleLogin
+                                onSuccess={handleGoogleSuccess}
+                                onError={() => setError("Google Login Failed")}
+                                theme="filled_blue"
+                                shape="pill"
+                                text="continue_with"
+                                width="320"
+                            />
+                        </div>
+                    </div>
 
                     <div className="mt-8 text-center">
                         <p className="text-slate-500 text-sm">

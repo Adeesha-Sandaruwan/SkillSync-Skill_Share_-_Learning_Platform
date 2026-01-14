@@ -1,6 +1,7 @@
 package com.learning.lms.controller;
 
 import com.learning.lms.dto.UserStatsResponse;
+import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.repository.UserRepository;
@@ -75,5 +76,11 @@ public class UserController {
     @GetMapping("/{userId}/suggestions")
     public ResponseEntity<List<User>> getSuggestions(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getSuggestions(userId));
+    }
+
+
+    @GetMapping("/{userId}/following")
+    public ResponseEntity<List<UserSummaryDto>> getFollowing(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getFollowing(userId));
     }
 }

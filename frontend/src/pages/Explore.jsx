@@ -16,13 +16,22 @@ const Explore = () => {
     const [search, setSearch] = useState(queryFromUrl);
     const [difficulty, setDifficulty] = useState('All');
 
+    // Sync state if URL changes
+    useEffect(() => {
+        setSearch(queryFromUrl);
+    }, [queryFromUrl]);
+
+    // MAIN FETCH LOGIC
     useEffect(() => {
         const fetchPlans = async () => {
             setLoading(true);
             try {
-                // Fetch fast DTOs
+                // Ensure "All" is converted to null/empty so backend ignores it
+                // OR backend handles "All".
+                // Based on your Backend Service code, it handles "All" correctly.
+                // So we can send 'All' directly.
+
                 const res = await getPublicPlans(search, difficulty, 'All');
-                // Ensure we set an array (guard against null response)
                 setPlans(res.data || []);
             } catch (error) {
                 console.error("Failed to fetch explore content", error);
@@ -34,7 +43,7 @@ const Explore = () => {
 
         const timeoutId = setTimeout(() => {
             fetchPlans();
-        }, 300); // 300ms debounce
+        }, 300); // Debounce
 
         return () => clearTimeout(timeoutId);
     }, [search, difficulty]);
@@ -50,15 +59,14 @@ const Explore = () => {
             <Navbar />
 
             {/* Header Section */}
-            {/* FIX: Removed 'sticky top-16 z-30' so this section scrolls away naturally */}
             <div className="bg-white border-b border-slate-200 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 py-6">
                     <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
                         <div>
                             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2 mb-1">
-                                <span className="text-3xl">🌍</span> Explore
+                                <span className="text-3xl">🌍</span> Explore Roadmaps
                             </h1>
-                            <p className="text-slate-500 text-sm font-medium">Discover roadmaps from the community.</p>
+                            <p className="text-slate-500 text-sm font-medium">Discover learning paths created by the community.</p>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -78,7 +86,7 @@ const Explore = () => {
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
                             >
-                                <option value="All">⚡ All</option>
+                                <option value="All">⚡ All Levels</option>
                                 <option value="Beginner">🌱 Beginner</option>
                                 <option value="Intermediate">🚀 Intermediate</option>
                                 <option value="Advanced">🔥 Advanced</option>
@@ -105,7 +113,7 @@ const Explore = () => {
                         <div className="text-6xl mb-4 grayscale opacity-50">🔭</div>
                         <h3 className="text-xl font-bold text-slate-700 mb-2">No roadmaps found.</h3>
                         <p className="text-slate-500 max-w-md mx-auto">
-                            We couldn't find any plans matching "{search}".
+                            We couldn't find any plans matching "{search}" with difficulty "{difficulty}".
                         </p>
                         <button onClick={() => { setSearch(''); setDifficulty('All'); setSearchParams({}); }} className="mt-6 text-indigo-600 font-bold hover:underline">
                             Clear Filters

@@ -12,24 +12,22 @@ import java.util.List;
 @Repository
 public interface LearningPlanRepository extends JpaRepository<LearningPlan, Long> {
 
-    // Fetch User + Plan in one go
     @EntityGraph(attributePaths = {"user"})
     List<LearningPlan> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     @EntityGraph(attributePaths = {"user"})
     List<LearningPlan> findByUserId(Long userId);
 
-    // For Discovery/Explore page - Crucial for speed
     @EntityGraph(attributePaths = {"user"})
     List<LearningPlan> findByIsPublicTrueOrderByCreatedAtDesc();
 
-    // Advanced Search - Also fetches user instantly
+    // --- HOTFIX: Removed 'description' from search to bypass DB crash ---
     @EntityGraph(attributePaths = {"user"})
     @Query("SELECT p FROM LearningPlan p WHERE " +
             "p.isPublic = true AND " +
-            "(:query IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
-            "(:difficulty = 'All' OR p.difficulty = :difficulty) AND " +
-            "(:category = 'All' OR p.category = :category) " +
+            "(:query IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
+            "(:difficulty = 'All' OR LOWER(TRIM(p.difficulty)) = LOWER(TRIM(:difficulty))) AND " +
+            "(:category = 'All' OR LOWER(TRIM(p.category)) = LOWER(TRIM(:category))) " +
             "ORDER BY p.createdAt DESC")
     List<LearningPlan> searchPlans(
             @Param("query") String query,

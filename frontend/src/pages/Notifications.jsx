@@ -59,10 +59,10 @@ const Notifications = () => {
     if (loading) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="flex justify-center pt-20"><LoadingSpinner /></div></div>;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="min-h-screen bg-slate-50">
             <Navbar />
 
-            <main className="container mx-auto px-4 py-8 max-w-2xl">
+            <main className="container mx-auto px-4 py-8 max-w-2xl pb-24 md:pb-8">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-extrabold text-slate-800">Notifications</h1>
                     {notifications.some(n => !n.read) && (

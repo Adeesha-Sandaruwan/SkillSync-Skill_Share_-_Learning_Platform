@@ -20,8 +20,10 @@ public class LearningPlan {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String title;
 
+    // ✅ FORCE TEXT TYPE: Ensures DB knows this is text, not binary
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -37,11 +39,14 @@ public class LearningPlan {
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "plan_tags", joinColumns = @JoinColumn(name = "plan_id"))
     @Column(name = "tag")
-    @BatchSize(size = 20) // <--- MAGIC FIX: Loads tags for 20 plans in 1 query
+    @BatchSize(size = 20)
     private List<String> tags = new ArrayList<>();
 
     private String topic;
+
+    @Column(columnDefinition = "TEXT") // Added TEXT here too just in case resources get long
     private String resources;
+
     private LocalDate startDate;
     private LocalDate targetDate;
 
@@ -49,7 +54,7 @@ public class LearningPlan {
     @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     @ToString.Exclude
-    @BatchSize(size = 20) // <--- MAGIC FIX: Loads steps for 20 plans in 1 query
+    @BatchSize(size = 20)
     private List<PlanStep> steps = new ArrayList<>();
 
     // --- OPTIMIZED: Lazy Loading for User ---

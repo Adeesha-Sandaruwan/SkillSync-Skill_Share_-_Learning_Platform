@@ -10,33 +10,43 @@ const NotificationDropdown = () => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const [loadingFollow, setLoadingFollow] = useState(null);
+
+    // NEW: Track who I am following to prevent button resets
+    const [followingIds, setFollowingIds] = useState(new Set());
+
     const dropdownRef = useRef(null);
 
-    // --- 1. FETCH NOTIFICATIONS ---
-    const fetchNotifications = async () => {
+    // --- 1. FETCH DATA ---
+    const fetchData = async () => {
         if (!user) return;
         try {
-            const [listRes, countRes] = await Promise.all([
+            // Fetch Notifications AND 'My Followings' in parallel
+            const [notifRes, countRes, followingRes] = await Promise.all([
                 api.get(`/notifications/${user.id}`),
-                api.get(`/notifications/${user.id}/unread-count`)
+                api.get(`/notifications/${user.id}/unread-count`),
+                api.get(`/users/${user.id}/following`) // Ensure this endpoint exists
             ]);
 
-            // Add a local property 'isFollowing' to handle UI state if backend doesn't send it
-            const formattedNotifications = listRes.data.map(n => ({
+            // Create a Set of IDs I am already following
+            const myFollowingSet = new Set(followingRes.data.map(u => u.id));
+            setFollowingIds(myFollowingSet);
+
+            // Merge: Check if notification actor is in my following set
+            const mergedNotifications = notifRes.data.map(n => ({
                 ...n,
-                isFollowing: false // Default state
+                isFollowing: myFollowingSet.has(n.actor.id)
             }));
 
-            setNotifications(formattedNotifications);
+            setNotifications(mergedNotifications);
             setUnreadCount(countRes.data);
         } catch (error) {
-            console.error("Failed to fetch notifications");
+            console.error("Failed to fetch data", error);
         }
     };
 
     useEffect(() => {
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
+        fetchData();
+        const interval = setInterval(fetchData, 30000); // Poll every 30s
         return () => clearInterval(interval);
     }, [user]);
 
@@ -46,7 +56,7 @@ const NotificationDropdown = () => {
             try {
                 await api.put(`/notifications/${user.id}/read-all`);
                 setUnreadCount(0);
-                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                setNotifications(prev => prev.map(n => ({ ...n, read: true })));
             } catch (e) { console.error(e); }
         }
         setIsOpen(!isOpen);
@@ -69,25 +79,25 @@ const NotificationDropdown = () => {
         try {
             await api.post(`/users/${actorId}/follow?followerId=${user.id}`);
 
-            // --- UPDATE UI STATE IMMEDIATELY ---
-            setNotifications(prevNotifications =>
-                prevNotifications.map(n => {
-                    // Mark ALL notifications from this user as followed
-                    if (n.actor.id === actorId) {
-                        return { ...n, isFollowing: true };
-                    }
-                    return n;
-                })
-            );
+            // 1. Update the Set
+            setFollowingIds(prev => new Set(prev).add(actorId));
+
+            // 2. Update the UI List immediately
+            setNotifications(prev => prev.map(n => {
+                if (n.actor.id === actorId) {
+                    return { ...n, isFollowing: true };
+                }
+                return n;
+            }));
 
         } catch (error) {
-            console.error("Failed to follow");
-            alert("Could not follow user.");
+            console.error("Failed to follow", error);
         } finally {
             setLoadingFollow(null);
         }
     };
 
+    // Close on click outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -125,7 +135,7 @@ const NotificationDropdown = () => {
                 <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-scale-in origin-top-right">
                     <div className="p-4 border-b border-slate-50 bg-white/80 backdrop-blur-md flex justify-between items-center sticky top-0 z-10">
                         <h3 className="font-bold text-slate-800">Notifications</h3>
-                        <button onClick={fetchNotifications} className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors">
+                        <button onClick={fetchData} className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors">
                             Refresh
                         </button>
                     </div>
@@ -141,11 +151,11 @@ const NotificationDropdown = () => {
                                 <div
                                     key={notif.id}
                                     onClick={() => handleNotificationClick(notif)}
-                                    className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-4 cursor-pointer group ${!notif.isRead ? 'bg-indigo-50/40' : ''}`}
+                                    className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-4 cursor-pointer group ${!notif.read ? 'bg-indigo-50/40' : ''}`}
                                 >
                                     <div className="relative flex-shrink-0">
                                         <img
-                                            src={notif.actor.avatarUrl}
+                                            src={notif.actor.avatarUrl || `https://ui-avatars.com/api/?name=${notif.actor.username}`}
                                             className="w-10 h-10 rounded-full object-cover border border-slate-200"
                                             alt={notif.actor.username}
                                         />
@@ -168,18 +178,18 @@ const NotificationDropdown = () => {
                                             {new Date(notif.createdAt).toLocaleDateString()}
                                         </p>
 
-                                        {/* --- DYNAMIC BUTTON LOGIC --- */}
+                                        {/* --- FOLLOW BUTTON --- */}
                                         {notif.type === 'FOLLOW' && (
                                             <div className="mt-2">
                                                 {notif.isFollowing ? (
-                                                    <span className="text-xs bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg font-bold border border-slate-200">
+                                                    <span className="text-xs bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg font-bold border border-slate-200 inline-block">
                                                         Following
                                                     </span>
                                                 ) : (
                                                     <button
                                                         onClick={(e) => handleFollowBack(e, notif.actor.id)}
                                                         disabled={loadingFollow === notif.actor.id}
-                                                        className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm w-full sm:w-auto disabled:opacity-50"
+                                                        className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
                                                     >
                                                         {loadingFollow === notif.actor.id ? 'Following...' : 'Follow Back'}
                                                     </button>
@@ -188,7 +198,7 @@ const NotificationDropdown = () => {
                                         )}
                                     </div>
 
-                                    {!notif.isRead && (
+                                    {!notif.read && (
                                         <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
                                     )}
                                 </div>
@@ -197,7 +207,7 @@ const NotificationDropdown = () => {
                     </div>
 
                     <Link
-                        to={`/profile/${user.id}`}
+                        to="/notifications"
                         className="block p-3 text-center text-xs font-bold text-slate-500 hover:bg-slate-50 border-t border-slate-100 transition-colors"
                         onClick={() => setIsOpen(false)}
                     >

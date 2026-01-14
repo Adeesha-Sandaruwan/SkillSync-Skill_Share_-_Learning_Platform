@@ -13,7 +13,7 @@ import { useAuth } from '../context/useAuth';
 
 const Profile = () => {
     const { userId } = useParams();
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, setAuth } = useAuth();
     const navigate = useNavigate();
     const [profileUser, setProfileUser] = useState(null);
     const [posts, setPosts] = useState([]);
@@ -101,6 +101,14 @@ const Profile = () => {
     const handleDeletePlan = (id) => { setUserPlans(p => p.filter(pl => pl.id !== id)); setStats(p => ({...p, totalPlans: p.totalPlans - 1})); };
     const handleUpdatePost = (postId, updatedPost) => { setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p)); };
 
+    const handleProfileUpdate = (updatedUser) => {
+        setProfileUser(updatedUser);
+        if (currentUser && String(currentUser.id) === String(updatedUser.id)) {
+            const newAuthData = { ...updatedUser, token: currentUser.token };
+            if (setAuth) setAuth(newAuthData);
+        }
+    };
+
     if (loading) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="flex justify-center h-[60vh] items-center"><LoadingSpinner variant="page"/></div></div>;
     if (!profileUser) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="text-center pt-20">User not found</div></div>;
 
@@ -153,7 +161,7 @@ const Profile = () => {
                 </div>
             </main>
             {shortsIndex !== null && (<ShortsViewer posts={posts} startIndex={shortsIndex} onClose={() => setShortsIndex(null)} onUpdatePost={handleUpdatePost} />)}
-            {isEditing && <EditProfileModal user={profileUser} onClose={() => setIsEditing(false)} onUpdate={(u) => setProfileUser(u)} />}
+            {isEditing && <EditProfileModal user={profileUser} onClose={() => setIsEditing(false)} onUpdate={handleProfileUpdate} />}
             {modalType && <AddPortfolioModal userId={currentUser.id} type={modalType} onClose={() => setModalType(null)} onSuccess={refreshPortfolio} />}
         </div>
     );

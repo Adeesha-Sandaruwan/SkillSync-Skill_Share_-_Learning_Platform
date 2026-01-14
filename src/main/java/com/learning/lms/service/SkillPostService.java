@@ -1,5 +1,6 @@
 package com.learning.lms.service;
 
+import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.entity.SkillPost;
 import com.learning.lms.entity.User;
@@ -21,8 +22,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +37,6 @@ public class SkillPostService {
     private final NotificationService notificationService;
     private final LearningPlanRepository learningPlanRepository;
 
-    // ... (Other methods remain unchanged: getAllPosts, getFollowingPosts, getUserPosts, createSimplePost, createPost) ...
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository.findAllPosts(pageable).getContent();
@@ -68,6 +71,7 @@ public class SkillPostService {
 
         if (originalPostId != null) {
             SkillPost original = postRepository.findById(originalPostId).orElseThrow();
+            // If reposting a repost, link to the absolute original to avoid chains
             post.setOriginalPost(original.getOriginalPost() != null ? original.getOriginalPost() : original);
         }
 
@@ -94,35 +98,49 @@ public class SkillPostService {
         return postRepository.save(post);
     }
 
-    // --- FIX: Ensure strict reaction toggling logic ---
     @Transactional
     public SkillPost reactToPost(Long postId, Long userId, ReactionType type) {
         SkillPost post = postRepository.findById(postId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow();
 
-        // 1. Check if user already reacted
         if (post.getReactions().containsKey(userId)) {
             ReactionType existingType = post.getReactions().get(userId);
-
             if (existingType == type) {
-                // Clicking SAME reaction -> Remove it (Toggle OFF)
                 post.getReactions().remove(userId);
             } else {
-                // Clicking DIFFERENT reaction -> Switch it (Update)
                 post.getReactions().put(userId, type);
             }
         } else {
-            // New Reaction -> Add it
             post.getReactions().put(userId, type);
-
-            // Notification logic (only for new reactions to avoid spam)
             if (!post.getUser().getId().equals(userId)) {
                 notificationService.createNotification(post.getUser(), user, NotificationType.LIKE, "reacted " + type + " to your post", post.getId());
             }
         }
-
-        // Force save and return updated entity
         return postRepository.saveAndFlush(post);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserSummaryDto> getPostReactions(Long postId) {
+        SkillPost post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
+        Map<Long, ReactionType> reactions = post.getReactions();
+
+        if (reactions.isEmpty()) return new ArrayList<>();
+
+        List<User> users = userRepository.findAllById(reactions.keySet());
+
+        // Map users to DTOs and include the reaction type logic if needed
+        // For now, we return the user details. The frontend can match types if we extended the DTO,
+        // but typically just showing "Who reacted" is sufficient.
+        return users.stream().map(user -> UserSummaryDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .firstname(user.getFirstname())
+                .lastname(user.getLastname())
+                .avatarUrl(user.getAvatarUrl())
+                .level(user.getLevel())
+                // We could add a 'reaction' field to UserSummaryDto if you strictly need to see WHICH reaction they used in the list
+                .build()
+        ).collect(Collectors.toList());
     }
 
     @Transactional

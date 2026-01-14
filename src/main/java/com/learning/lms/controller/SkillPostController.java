@@ -1,5 +1,6 @@
 package com.learning.lms.controller;
 
+import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.entity.SkillPost;
 import com.learning.lms.enums.ReactionType;
 import com.learning.lms.service.SkillPostService;
@@ -40,14 +41,13 @@ public class SkillPostController {
         return ResponseEntity.ok(postService.getUserPosts(userId, page, size));
     }
 
-    // --- UPDATED: Accepts learningPlanId ---
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<SkillPost> createPost(
             @RequestParam Long userId,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) List<MultipartFile> media,
             @RequestParam(required = false) Long originalPostId,
-            @RequestParam(required = false) Long learningPlanId // <--- New Param
+            @RequestParam(required = false) Long learningPlanId
     ) {
         return ResponseEntity.ok(postService.createPost(userId, description, media, originalPostId, learningPlanId));
     }
@@ -60,6 +60,13 @@ public class SkillPostController {
     ) {
         return ResponseEntity.ok(postService.reactToPost(postId, userId, type));
     }
+
+    // --- NEW: Get who reacted to a post ---
+    @GetMapping("/{postId}/reactions")
+    public ResponseEntity<List<UserSummaryDto>> getPostReactions(@PathVariable Long postId) {
+        return ResponseEntity.ok(postService.getPostReactions(postId));
+    }
+    // --------------------------------------
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> deletePost(@PathVariable Long postId) {

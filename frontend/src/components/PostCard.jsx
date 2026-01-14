@@ -12,10 +12,16 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
     const [showComments, setShowComments] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
 
+    // Reaction List State
+    const [showReactionListModal, setShowReactionListModal] = useState(false);
+    const [reactedUsers, setReactedUsers] = useState([]);
+    const [loadingReactedUsers, setLoadingReactedUsers] = useState(false);
+
     // Reaction State
     const [myReaction, setMyReaction] = useState(null);
     const [totalCount, setTotalCount] = useState(0);
     const [isCopied, setIsCopied] = useState(false);
+    const [isReposting, setIsReposting] = useState(false);
 
     const hoverTimeoutRef = useRef(null);
 
@@ -90,6 +96,26 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         } catch (error) { console.error("Error sharing:", error); }
     };
 
+    const handleRepost = async () => {
+        if (!window.confirm("Repost this to your feed?")) return;
+        setIsReposting(true);
+        try {
+            // Repost API call
+            const formData = new FormData();
+            formData.append('userId', currentUser.id);
+            formData.append('originalPostId', post.id); // Reference the current post ID
+
+            await api.post('/posts', formData);
+            alert("Reposted successfully!");
+            if (onDeleteSuccess) onDeleteSuccess(); // Triggers refresh in parent
+        } catch (error) {
+            console.error("Repost failed", error);
+            alert("Failed to repost.");
+        } finally {
+            setIsReposting(false);
+        }
+    };
+
     const handleReaction = async (type) => {
         setShowReactions(false);
         const oldReaction = myReaction;
@@ -108,6 +134,21 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
         } catch (error) {
             setMyReaction(oldReaction);
             setTotalCount(prev => isRemoving ? prev + 1 : prev - 1);
+        }
+    };
+
+    // --- NEW: Fetch List of Reactors ---
+    const handleShowReactors = async () => {
+        if (totalCount === 0) return;
+        setShowReactionListModal(true);
+        setLoadingReactedUsers(true);
+        try {
+            const res = await api.get(`/posts/${post.id}/reactions`);
+            setReactedUsers(res.data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoadingReactedUsers(false);
         }
     };
 
@@ -160,19 +201,42 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                                 </button>
                             </>
                         )}
-
                         <img src={mediaUrls[lightboxIndex]} className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-lg select-none" alt="Gallery" />
                         <div className="mt-4 text-white/50 font-medium text-sm tracking-widest">{lightboxIndex + 1} / {mediaUrls.length}</div>
                     </div>
                 </div>
             )}
 
-            {/* --- MAGIC FIX: DYNAMIC Z-INDEX ---
-                If menu or reactions are open, promote this card to z-[100].
-                Otherwise, keep it at z-0 so it doesn't overlap others unnecessarily.
-            */}
-            <div className={`bg-white rounded-3xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 mb-8 relative group/card ${isMenuOpen || showReactions ? 'z-[100]' : 'z-0'}`}>
+            {/* --- REACTION LIST MODAL --- */}
+            {showReactionListModal && (
+                <div className="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowReactionListModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 className="font-bold text-slate-800 text-lg">People who reacted</h3>
+                            <button onClick={() => setShowReactionListModal(false)} className="text-slate-400 hover:text-slate-700 font-bold text-xl">&times;</button>
+                        </div>
+                        <div className="max-h-[400px] overflow-y-auto p-4 space-y-3">
+                            {loadingReactedUsers ? (
+                                <div className="text-center py-6 text-slate-400">Loading...</div>
+                            ) : reactedUsers.length > 0 ? (
+                                reactedUsers.map(user => (
+                                    <Link to={`/profile/${user.id}`} key={user.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} className="w-10 h-10 rounded-full border border-slate-200" alt="" />
+                                        <div>
+                                            <p className="font-bold text-slate-800 text-sm">{user.username}</p>
+                                            <p className="text-xs text-slate-500">Level {user.level || 1}</p>
+                                        </div>
+                                    </Link>
+                                ))
+                            ) : (
+                                <p className="text-center text-slate-400 py-6">No reactions yet.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
+            <div className={`bg-white rounded-3xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 mb-8 relative group/card ${isMenuOpen || showReactions ? 'z-[100]' : 'z-0'}`}>
                 {/* Repost Header */}
                 {isRepost && (
                     <div className="bg-slate-50/50 px-5 py-2 border-b border-slate-100 flex items-center gap-2 text-xs font-bold text-slate-500 rounded-t-3xl">
@@ -180,9 +244,8 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                         <Link to={`/profile/${postUser.id}`} className="hover:text-indigo-600 transition-colors">{postUser.username}</Link> reposted
                     </div>
                 )}
-
                 <div className="p-5 pb-2">
-                    {/* Header: User Info & Menu */}
+                    {/* Header */}
                     <div className="flex items-start justify-between mb-4 relative">
                         <Link to={`/profile/${displayUser.id}`} className="flex items-center gap-3 group/user">
                             <div className="relative">
@@ -193,27 +256,18 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                                 <span className="text-xs text-slate-400 font-medium">{new Date(displayPost.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                             </div>
                         </Link>
-
                         {currentUser?.id === postUser.id && (
                             <div className="relative">
-                                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1.5 text-slate-300 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-all">
-                                    •••
-                                </button>
-                                {/* MENU DROPDOWN (Fixed High Z-Index) */}
+                                <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1.5 text-slate-300 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-all">•••</button>
                                 {isMenuOpen && (
                                     <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-scale-in origin-top-right">
-                                        <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors border-b border-slate-50">
-                                            ✏️ Edit Post
-                                        </button>
-                                        <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors">
-                                            🗑️ Delete Post
-                                        </button>
+                                        <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors border-b border-slate-50">✏️ Edit Post</button>
+                                        <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors">🗑️ Delete Post</button>
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
-
                     {/* Content */}
                     {isEditing ? (
                         <div className="animate-fade-in relative z-20">
@@ -226,8 +280,6 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                     ) : (
                         <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-[15px] mb-4 relative z-20">{displayPost.description}</p>
                     )}
-
-                    {/* Linked Roadmap */}
                     {linkedPlan && (
                         <div onClick={() => navigate(`/plans/${linkedPlan.id}`)} className="mb-4 border border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-all group/plan bg-slate-50/50 relative z-20">
                             <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -241,25 +293,18 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                         </div>
                     )}
                 </div>
-
                 {/* Media Grid */}
                 {mediaUrls.length > 0 && (
                     <div className={`w-full cursor-pointer overflow-hidden relative z-20 ${showComments ? '' : 'rounded-b-3xl'} ${mediaUrls.length > 1 ? 'grid grid-cols-2 h-72' : 'h-auto max-h-[500px]'}`}>
                         {mediaUrls.slice(0, 4).map((url, idx) => {
                             const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
                             return (
-                                <div
-                                    key={idx}
-                                    className={`relative group/media overflow-hidden bg-black ${mediaUrls.length === 3 && idx === 0 ? 'row-span-2' : ''}`}
-                                    onClick={() => handleMediaClick(url, idx)}
-                                >
+                                <div key={idx} className={`relative group/media overflow-hidden bg-black ${mediaUrls.length === 3 && idx === 0 ? 'row-span-2' : ''}`} onClick={() => handleMediaClick(url, idx)}>
                                     {isVideo ? (
                                         <>
                                             <video src={url} className="w-full h-full object-cover opacity-90 group-hover/media:opacity-100 transition-opacity" muted />
                                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                <div className="bg-white/20 backdrop-blur-sm p-3 rounded-full border border-white/50 shadow-xl">
-                                                    <svg className="w-6 h-6 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                                                </div>
+                                                <div className="bg-white/20 backdrop-blur-sm p-3 rounded-full border border-white/50 shadow-xl"><svg className="w-6 h-6 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></div>
                                             </div>
                                         </>
                                     ) : (
@@ -270,11 +315,10 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                         })}
                     </div>
                 )}
-
                 {/* Action Bar */}
                 <div className={`px-5 py-3 border-t border-slate-100/50 flex items-center justify-between mt-2 relative z-30 ${mediaUrls.length === 0 ? 'rounded-b-3xl' : ''}`}>
                     <div className="flex gap-1 relative">
-                        {/* Reaction Container */}
+                        {/* Reaction */}
                         <div className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
                             {showReactions && (
                                 <div className="absolute bottom-full left-0 mb-3 z-[102] animate-scale-in origin-bottom-left shadow-2xl rounded-full">
@@ -283,18 +327,30 @@ const PostCard = ({ post, onOpenVideo, onDeleteSuccess }) => {
                             )}
                             <button onClick={() => handleReaction(myReaction || 'LIKE')} className={`group flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-all duration-200 active:scale-95 ${myReaction ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`}>
                                 <span className={`text-xl transition-transform ${myReaction ? 'scale-110' : 'group-hover:scale-110'}`}>{myReaction ? reactionIcons[myReaction] : '👍'}</span>
-                                <span className={`${totalCount > 0 ? 'opacity-100' : 'opacity-0'} transition-opacity bg-slate-200/50 px-2 py-0.5 rounded-md text-xs`}>{totalCount}</span>
+                                {/* --- UPDATED: Click to show list --- */}
+                                <span
+                                    onClick={(e) => { e.stopPropagation(); handleShowReactors(); }}
+                                    className={`${totalCount > 0 ? 'opacity-100' : 'opacity-0'} transition-opacity bg-slate-200/50 px-2 py-0.5 rounded-md text-xs hover:bg-slate-300 cursor-pointer`}
+                                    title="See who reacted"
+                                >
+                                    {totalCount}
+                                </span>
                             </button>
                         </div>
+
                         <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95">
                             <span className="text-xl">💬</span><span className="hidden sm:inline">Comment</span>{post.comments?.length > 0 && <span className="bg-slate-100 px-2 py-0.5 rounded-md text-xs">{post.comments.length}</span>}
+                        </button>
+
+                        {/* --- NEW: REPOST BUTTON --- */}
+                        <button onClick={handleRepost} className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95" disabled={isReposting}>
+                            <span className="text-xl">🔄</span><span className="hidden sm:inline">Repost</span>
                         </button>
                     </div>
                     <button onClick={handleShare} className={`p-2 rounded-full transition-all active:scale-95 ${isCopied ? 'bg-green-50 text-green-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`} title="Share Post">
                         {isCopied ? <span className="text-xs font-bold px-2">Copied!</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
                     </button>
                 </div>
-
                 {/* Comments Section */}
                 {showComments && (
                     <div className="border-t border-slate-100 bg-slate-50/30 animate-fade-in rounded-b-3xl relative z-20">

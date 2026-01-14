@@ -1,7 +1,7 @@
 package com.learning.lms.repository;
 
 import com.learning.lms.entity.User;
-import org.springframework.data.domain.Pageable; // <--- Make sure this is imported
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,11 +15,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Boolean existsByUsername(String username);
     Boolean existsByEmail(String email);
 
+    // --- SEARCH & DISCOVERY ---
     @Query("SELECT u FROM User u WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.firstname) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<User> searchUsers(@Param("query") String query);
 
-    // --- NEW: Suggestion Query ---
-    // Find users who are NOT me AND NOT in my following list
     @Query("SELECT u FROM User u WHERE u.id != :currentUserId AND u.id NOT IN " +
             "(SELECT f.id FROM User me JOIN me.following f WHERE me.id = :currentUserId)")
     List<User> findSuggestedUsers(@Param("currentUserId") Long currentUserId, Pageable pageable);

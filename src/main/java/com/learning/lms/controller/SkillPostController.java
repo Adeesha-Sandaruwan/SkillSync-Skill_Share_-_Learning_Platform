@@ -61,7 +61,6 @@ public class SkillPostController {
         return ResponseEntity.ok(postService.reactToPost(postId, userId, type));
     }
 
-    // --- ENDPOINT TO FETCH REACTIONS ---
     @GetMapping("/{postId}/reactions")
     public ResponseEntity<List<UserSummaryDto>> getPostReactions(@PathVariable Long postId) {
         return ResponseEntity.ok(postService.getPostReactions(postId));
@@ -76,5 +75,11 @@ public class SkillPostController {
     @PutMapping("/{postId}")
     public ResponseEntity<SkillPost> updatePost(@PathVariable Long postId, @RequestBody String desc) {
         return ResponseEntity.ok(postService.updatePost(postId, desc));
+    }
+
+    // --- NEW SEARCH ENDPOINT ---
+    @GetMapping("/search")
+    public ResponseEntity<List<SkillPost>> searchPosts(@RequestParam("query") String query) {
+        return ResponseEntity.ok(postService.searchPosts(query));
     }
 }

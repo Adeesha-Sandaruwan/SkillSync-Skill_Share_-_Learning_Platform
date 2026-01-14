@@ -32,22 +32,13 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Allow Preflight (OPTIONS)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // 2. Allow Public Endpoints
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll() // Login/Register/Google
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/error").permitAll()
-
-                        // 3. THIS WAS MISSING: Allow Public Plans!
                         .requestMatchers("/api/plans/public").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll() // Allow viewing details without login
-
-                        // 4. Allow other read-only content
+                        .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
-
-                        // 5. Lock everything else
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

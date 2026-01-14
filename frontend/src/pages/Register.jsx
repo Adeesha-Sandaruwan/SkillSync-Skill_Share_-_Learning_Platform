@@ -14,6 +14,15 @@ const Register = () => {
     const { register, setAuth, normalizeUser } = useAuth();
     const navigate = useNavigate();
 
+    // Helper to decode Google Token
+    const parseJwt = (token) => {
+        try {
+            return JSON.parse(atob(token.split('.')[1]));
+        } catch (e) {
+            return null;
+        }
+    };
+
     const validate = () => {
         const newErrors = {};
         if (formData.username.length < 3) newErrors.username = 'Min 3 chars required';
@@ -48,7 +57,19 @@ const Register = () => {
         setIsLoading(true);
         setApiError('');
         try {
-            const res = await api.post('/auth/google', { token: credentialResponse.credential });
+            const googleToken = credentialResponse.credential;
+            const decoded = parseJwt(googleToken);
+
+            if (!decoded) throw new Error("Failed to decode Google token");
+
+            // Send all details needed for Auto-Registration (JIT)
+            const res = await api.post('/auth/google', {
+                email: decoded.email,
+                displayName: decoded.name,
+                photoUrl: decoded.picture,
+                googleToken: googleToken
+            });
+
             if (res.data.token) {
                 const userData = normalizeUser ? normalizeUser(res.data) : res.data;
                 if (userData.userId && !userData.id) userData.id = userData.userId;

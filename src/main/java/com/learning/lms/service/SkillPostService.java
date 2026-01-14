@@ -52,6 +52,18 @@ public class SkillPostService {
         return postRepository.findByUserId(userId, pageable).getContent();
     }
 
+    // --- NEW: Search Posts Logic ---
+    public List<SkillPost> searchPosts(String query) {
+        if(query == null || query.isBlank()) return List.of();
+        String q = query.toLowerCase();
+
+        // Fetch recent 100 posts (optimization) and filter in memory
+        return postRepository.findAll().stream()
+                .filter(p -> p.getDescription() != null && p.getDescription().toLowerCase().contains(q))
+                .limit(20)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public SkillPost createSimplePost(Long userId, String content, String type) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -118,7 +130,6 @@ public class SkillPostService {
         return postRepository.saveAndFlush(post);
     }
 
-    // --- LOGIC TO GET REACTORS ---
     @Transactional(readOnly = true)
     public List<UserSummaryDto> getPostReactions(Long postId) {
         SkillPost post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
@@ -135,7 +146,7 @@ public class SkillPostService {
                 .lastname(user.getLastname())
                 .avatarUrl(user.getAvatarUrl())
                 .level(user.getLevel())
-                .reactionType(reactions.get(user.getId()).name()) // Show what they reacted with
+                .reactionType(reactions.get(user.getId()).name())
                 .build()
         ).collect(Collectors.toList());
     }

@@ -13,6 +13,15 @@ const Login = () => {
     const { login, setAuth, normalizeUser } = useAuth();
     const navigate = useNavigate();
 
+    // Helper to decode Google Token
+    const parseJwt = (token) => {
+        try {
+            return JSON.parse(atob(token.split('.')[1]));
+        } catch (e) {
+            return null;
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -32,15 +41,22 @@ const Login = () => {
         setIsLoading(true);
         setError('');
         try {
+            const googleToken = credentialResponse.credential;
+            const decoded = parseJwt(googleToken);
+
+            if (!decoded) throw new Error("Failed to decode Google token");
+
+            // Send all details needed for Auto-Registration (JIT)
             const res = await api.post('/auth/google', {
-                token: credentialResponse.credential
+                email: decoded.email,
+                displayName: decoded.name,
+                photoUrl: decoded.picture,
+                googleToken: googleToken
             });
 
-            // Use normalizeUser to ensure 'userId' is mapped to 'id'
             if (res.data.token) {
                 const userData = normalizeUser ? normalizeUser(res.data) : res.data;
-
-                // Manual fallback if normalizeUser isn't available yet (safety)
+                // Safety mapping
                 if (userData.userId && !userData.id) userData.id = userData.userId;
 
                 localStorage.setItem('token', res.data.token);

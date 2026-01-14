@@ -7,6 +7,7 @@ import com.learning.lms.dto.RegisterRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.service.UserService;
 import jakarta.validation.Valid;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +33,31 @@ public class AuthController {
             String token = jwtService.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(user, token));
         } catch (RuntimeException ex) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<AuthResponse>build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
+        try {
+            // This method in UserService now handles auto-registration
+            User user = userService.processGoogleLogin(
+                    request.getEmail(),
+                    request.getDisplayName(),
+                    request.getPhotoUrl()
+            );
+            String token = jwtService.generateToken(user);
+            return ResponseEntity.ok(new AuthResponse(user, token));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @Data
+    public static class GoogleLoginRequest {
+        private String email;
+        private String displayName;
+        private String photoUrl;
+        private String googleToken;
     }
 }

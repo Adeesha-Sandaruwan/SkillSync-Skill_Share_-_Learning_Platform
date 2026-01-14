@@ -4,16 +4,15 @@ import com.learning.lms.dto.UserStatsResponse;
 import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
-import com.learning.lms.repository.UserRepository;
 import com.learning.lms.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -21,45 +20,49 @@ import java.util.stream.Collectors;
 public class UserController {
 
     private final UserService userService;
-    private final UserRepository userRepository;
 
-    @GetMapping("/{id}")
-    public ResponseEntity<User> getUserProfile(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.getUserById(id));
+    @GetMapping("/me")
+    public ResponseEntity<User> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getUserById(((User) userDetails).getId());
+        return ResponseEntity.ok(user);
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<List<User>> searchUsers(@RequestParam("q") String query) {
-        if (query == null || query.trim().length() < 2) return ResponseEntity.ok(List.of());
-        return ResponseEntity.ok(userRepository.searchUsers(query));
+    @GetMapping("/{userId}")
+    public ResponseEntity<User> getUserProfile(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getUserById(userId));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<User> updateUserProfile(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
-        return ResponseEntity.ok(userService.updateUser(id, request));
+    @PutMapping("/me")
+    public ResponseEntity<User> updateProfile(@AuthenticationPrincipal UserDetails userDetails,
+                                              @RequestBody UserUpdateRequest request) {
+        return ResponseEntity.ok(userService.updateUser(((User) userDetails).getId(), request));
     }
 
-    @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> uploadAvatar(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
-        String avatarUrl = userService.uploadAvatar(id, file);
-        return ResponseEntity.ok(avatarUrl);
+    @PostMapping("/me/avatar")
+    public ResponseEntity<String> uploadAvatar(@AuthenticationPrincipal UserDetails userDetails,
+                                               @RequestParam("file") MultipartFile file) {
+        String fileUrl = userService.uploadAvatar(((User) userDetails).getId(), file);
+        return ResponseEntity.ok(fileUrl);
     }
 
     @PostMapping("/{userId}/follow")
-    public ResponseEntity<Void> followUser(@PathVariable Long userId, @RequestParam Long followerId) {
-        userService.followUser(followerId, userId);
+    public ResponseEntity<Void> followUser(@AuthenticationPrincipal UserDetails currentUser,
+                                           @PathVariable Long userId) {
+        userService.followUser(((User) currentUser).getId(), userId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{userId}/unfollow")
-    public ResponseEntity<Void> unfollowUser(@PathVariable Long userId, @RequestParam Long followerId) {
-        userService.unfollowUser(followerId, userId);
+    public ResponseEntity<Void> unfollowUser(@AuthenticationPrincipal UserDetails currentUser,
+                                             @PathVariable Long userId) {
+        userService.unfollowUser(((User) currentUser).getId(), userId);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{userId}/is-following")
-    public ResponseEntity<Boolean> isFollowing(@PathVariable Long userId, @RequestParam Long followerId) {
-        return ResponseEntity.ok(userService.isFollowing(followerId, userId));
+    @GetMapping("/{userId}/isFollowing")
+    public ResponseEntity<Boolean> isFollowing(@AuthenticationPrincipal UserDetails currentUser,
+                                               @PathVariable Long userId) {
+        return ResponseEntity.ok(userService.isFollowing(((User) currentUser).getId(), userId));
     }
 
     @GetMapping("/{userId}/stats")
@@ -69,18 +72,16 @@ public class UserController {
 
     @GetMapping("/leaderboard")
     public ResponseEntity<List<User>> getLeaderboard() {
-        List<User> topUsers = userService.getLeaderboard().stream().limit(10).collect(Collectors.toList());
-        return ResponseEntity.ok(topUsers);
+        return ResponseEntity.ok(userService.getLeaderboard());
     }
 
-    @GetMapping("/{userId}/suggestions")
-    public ResponseEntity<List<User>> getSuggestions(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getSuggestions(userId));
+    @GetMapping("/suggestions")
+    public ResponseEntity<List<User>> getSuggestions(@AuthenticationPrincipal UserDetails currentUser) {
+        return ResponseEntity.ok(userService.getSuggestions(((User) currentUser).getId()));
     }
 
-
-    @GetMapping("/{userId}/following")
-    public ResponseEntity<List<UserSummaryDto>> getFollowing(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getFollowing(userId));
+    @GetMapping("/search")
+    public ResponseEntity<List<UserSummaryDto>> searchUsers(@RequestParam("query") String query) {
+        return ResponseEntity.ok(userService.searchUsers(query));
     }
 }

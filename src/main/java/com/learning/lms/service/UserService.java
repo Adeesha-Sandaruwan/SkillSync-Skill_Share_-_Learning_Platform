@@ -3,7 +3,7 @@ package com.learning.lms.service;
 import com.learning.lms.dto.LoginRequest;
 import com.learning.lms.dto.RegisterRequest;
 import com.learning.lms.dto.UserStatsResponse;
-import com.learning.lms.dto.UserSummaryDto; // <--- Import this
+import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.dto.UserUpdateRequest;
 import com.learning.lms.entity.User;
 import com.learning.lms.enums.NotificationType;
@@ -13,6 +13,8 @@ import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
 import com.learning.lms.util.ImageUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,21 +30,46 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors; // <--- Import for streaming
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final NotificationService notificationService;
-
     private final SkillPostRepository skillPostRepository;
     private final LearningPlanRepository learningPlanRepository;
     private final PlanStepRepository planStepRepository;
 
+    // --- BREAKING CIRCULAR DEPENDENCIES WITH @LAZY ---
+    @Autowired
+    @Lazy
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    @Lazy
+    private NotificationService notificationService;
+    // --------------------------------------------------
+
     private final String UPLOAD_DIR = "uploads/";
+
+    // --- GOOGLE AUTO-REGISTRATION (JIT) ---
+    @Transactional
+    public User processGoogleLogin(String email, String displayName, String photoUrl) {
+        return userRepository.findByEmail(email).orElseGet(() -> {
+            User newUser = new User();
+            newUser.setEmail(email);
+            String baseName = email.split("@")[0];
+            newUser.setUsername(baseName + "_" + UUID.randomUUID().toString().substring(0, 4));
+            newUser.setFirstname(displayName);
+            newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // Uses Lazy PasswordEncoder
+            newUser.setAvatarUrl(photoUrl);
+            newUser.setXp(0);
+            newUser.setLevel(1);
+            newUser.getBadges().add("NOVICE");
+            return userRepository.save(newUser);
+        });
+    }
 
     public User registerUser(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) throw new RuntimeException("Username already taken");
@@ -123,7 +150,6 @@ public class UserService {
         return follower.getFollowing().contains(target);
     }
 
-    // --- FIX: Added Missing Method ---
     @Transactional(readOnly = true)
     public List<UserSummaryDto> getFollowing(Long userId) {
         User user = getUserById(userId);
@@ -132,7 +158,14 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    // --- Helper Mapper ---
+    @Transactional(readOnly = true)
+    public List<UserSummaryDto> searchUsers(String query) {
+        if (query == null || query.isBlank()) return List.of();
+        return userRepository.searchUsers(query.trim()).stream()
+                .map(this::mapToUserDto)
+                .collect(Collectors.toList());
+    }
+
     private UserSummaryDto mapToUserDto(User user) {
         return UserSummaryDto.builder()
                 .id(user.getId())
@@ -143,7 +176,6 @@ public class UserService {
                 .level(user.getLevel())
                 .build();
     }
-    // ----------------------------------
 
     @Transactional(readOnly = true)
     public UserStatsResponse getUserStats(Long userId) {

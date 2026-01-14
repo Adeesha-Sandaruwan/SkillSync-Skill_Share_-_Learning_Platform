@@ -4,9 +4,10 @@ import Register from './pages/Register';
 import HomeFeed from './pages/HomeFeed';
 import Profile from './pages/Profile';
 import Explore from './pages/Explore';
-import Leaderboard from './pages/Leaderboard'; // <--- Import
+import Leaderboard from './pages/Leaderboard';
 import CreatePlan from './pages/CreatePlan';
 import PlanDetails from './pages/PlanDetails';
+import Search from './pages/Search'; // <--- Import New Page
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -19,7 +20,8 @@ function App() {
             <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<HomeFeed />} />
                 <Route path="/explore" element={<Explore />} />
-                <Route path="/leaderboard" element={<Leaderboard />} /> {/* <--- New Route */}
+                <Route path="/search" element={<Search />} /> {/* <--- New Route */}
+                <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/create-plan" element={<CreatePlan />} />
                 <Route path="/plans/:planId" element={<PlanDetails />} />
                 <Route path="/profile/:userId" element={<Profile />} />

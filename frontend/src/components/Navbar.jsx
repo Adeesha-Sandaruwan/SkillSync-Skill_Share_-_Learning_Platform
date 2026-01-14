@@ -1,31 +1,89 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import NotificationDropdown from './NotificationDropdown';
+import api, { getPublicPlans } from '../services/api'; // Ensure getPublicPlans is exported from api.js
 
 const Navbar = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // --- SEARCH STATES ---
     const [searchQuery, setSearchQuery] = useState('');
+    const [suggestions, setSuggestions] = useState({ people: [], plans: [] });
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+    const searchRef = useRef(null);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    const handleSearch = (e) => {
+    // --- GOOGLE-STYLE AUTOCOMPLETE LOGIC ---
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (searchQuery.trim().length < 2) {
+                setSuggestions({ people: [], plans: [] });
+                return;
+            }
+
+            setLoadingSuggestions(true);
+            try {
+                // Run fetches in parallel for speed
+                const [usersRes, plansRes] = await Promise.allSettled([
+                    api.get(`/users/search?q=${searchQuery}`),
+                    getPublicPlans(searchQuery, 'All', 'All')
+                ]);
+
+                setSuggestions({
+                    people: usersRes.status === 'fulfilled' ? (usersRes.value.data || []).slice(0, 3) : [],
+                    plans: plansRes.status === 'fulfilled' ? (plansRes.value.data || []).slice(0, 3) : []
+                });
+                setShowSuggestions(true);
+            } catch (error) {
+                console.error("Autofill failed", error);
+            } finally {
+                setLoadingSuggestions(false);
+            }
+        };
+
+        // Debounce: Wait 300ms after user stops typing
+        const timeoutId = setTimeout(fetchSuggestions, 300);
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery]);
+
+    // Close dropdown if clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSearchSubmit = (e) => {
         e.preventDefault();
+        setShowSuggestions(false);
         if (searchQuery.trim()) {
-            navigate(`/explore?q=${encodeURIComponent(searchQuery)}`);
+            navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
         }
+    };
+
+    const handleSuggestionClick = (path) => {
+        navigate(path);
+        setShowSuggestions(false);
+        setSearchQuery(''); // Optional: clear search after click
     };
 
     const isActive = (path) => location.pathname === path;
 
     return (
         <>
-            {/* --- TOP NAVBAR (Sticky) --- */}
+            {/* --- TOP NAVBAR --- */}
             <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 transition-all">
                 <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
 
@@ -39,21 +97,83 @@ const Navbar = () => {
                         </span>
                     </Link>
 
-                    {/* SEARCH BAR (Hidden on very small screens, visible md+) */}
-                    <div className="flex-1 max-w-md mx-4 hidden sm:block">
-                        <form onSubmit={handleSearch} className="relative group">
+                    {/* --- SMART SEARCH BAR --- */}
+                    <div className="flex-1 max-w-md mx-4 hidden sm:block relative" ref={searchRef}>
+                        <form onSubmit={handleSearchSubmit} className="relative group">
                             <input
                                 type="text"
-                                placeholder="Search..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-2 border-transparent rounded-full text-sm font-medium text-slate-700 transition-all focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none"
+                                placeholder="Search people, roadmaps..."
+                                className={`w-full pl-10 pr-4 py-2.5 bg-slate-100 border-2 border-transparent text-sm font-medium text-slate-700 transition-all focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none ${showSuggestions ? 'rounded-t-2xl' : 'rounded-full'}`}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
+                                onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
                             />
                             <svg className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+
+                            {/* Loading Spinner in Search Bar */}
+                            {loadingSuggestions && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                </div>
+                            )}
                         </form>
+
+                        {/* --- AUTOCOMPLETE DROPDOWN --- */}
+                        {showSuggestions && (suggestions.people.length > 0 || suggestions.plans.length > 0) && (
+                            <div className="absolute top-full left-0 right-0 bg-white border-x border-b border-slate-200 shadow-xl rounded-b-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+
+                                {/* People Section */}
+                                {suggestions.people.length > 0 && (
+                                    <div className="py-2">
+                                        <h3 className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">People</h3>
+                                        {suggestions.people.map(person => (
+                                            <div
+                                                key={person.id}
+                                                onClick={() => handleSuggestionClick(`/profile/${person.id}`)}
+                                                className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors"
+                                            >
+                                                <img src={person.avatarUrl || `https://ui-avatars.com/api/?name=${person.username}`} className="w-8 h-8 rounded-full bg-slate-200 object-cover" alt="Avatar" />
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-800">{person.username}</p>
+                                                    {person.bio && <p className="text-xs text-slate-400 line-clamp-1">{person.bio}</p>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Roadmaps Section */}
+                                {suggestions.plans.length > 0 && (
+                                    <div className="py-2 border-t border-slate-100">
+                                        <h3 className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Roadmaps</h3>
+                                        {suggestions.plans.map(plan => (
+                                            <div
+                                                key={plan.id}
+                                                onClick={() => handleSuggestionClick(`/plans/${plan.id}`)} // Or whatever your plan detail route is
+                                                className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-lg">🗺️</div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-800 line-clamp-1">{plan.title}</p>
+                                                    <p className="text-xs text-slate-400">{plan.category} • {plan.difficulty}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* "See All" Footer */}
+                                <div
+                                    onClick={handleSearchSubmit}
+                                    className="p-3 bg-slate-50 text-center text-sm font-bold text-indigo-600 cursor-pointer hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                >
+                                    See all results for "{searchQuery}"
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* DESKTOP NAV LINKS (Visible on Tablet+) */}
+                    {/* DESKTOP NAV LINKS */}
                     <div className="hidden md:flex items-center gap-1 bg-slate-100/50 p-1.5 rounded-full border border-slate-200/50">
                         <NavLink to="/" active={isActive('/')} icon={<HomeIcon />} text="Feed" />
                         <NavLink to="/explore" active={isActive('/explore')} icon={<CompassIcon />} text="Explore" />
@@ -63,9 +183,7 @@ const Navbar = () => {
                     {/* RIGHT ACTIONS */}
                     <div className="flex items-center gap-3 md:gap-5 flex-shrink-0">
                         <NotificationDropdown />
-
                         <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
-
                         <div className="flex items-center gap-3">
                             <button onClick={handleLogout} className="hidden md:block text-xs font-bold text-slate-500 hover:text-red-500 transition-colors uppercase tracking-wide">
                                 Sign Out
@@ -74,7 +192,7 @@ const Navbar = () => {
                                 <div className="absolute -inset-0.5 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username}`} alt="Me" className="relative w-9 h-9 rounded-full bg-slate-200 border-2 border-white object-cover" />
                             </Link>
-                            {/* Mobile Profile Icon (Top Right) */}
+                            {/* Mobile Profile Icon */}
                             <Link to={`/profile/${user?.id}`} className="md:hidden">
                                 <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username}`} alt="Me" className="w-8 h-8 rounded-full border border-slate-200" />
                             </Link>
@@ -83,7 +201,7 @@ const Navbar = () => {
                 </div>
             </nav>
 
-            {/* --- MOBILE BOTTOM NAV (Fixed) --- */}
+            {/* --- MOBILE BOTTOM NAV --- */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] safe-area-bottom">
                 <MobileNavLink to="/" active={isActive('/')} icon={<HomeIcon />} label="Feed" />
                 <MobileNavLink to="/explore" active={isActive('/explore')} icon={<CompassIcon />} label="Explore" />
@@ -94,6 +212,7 @@ const Navbar = () => {
     );
 };
 
+// ... Subcomponents (NavLink, Icons) stay exactly the same ...
 const NavLink = ({ to, active, icon, text }) => (
     <Link to={to} className={`px-4 py-2 rounded-full flex items-center gap-2 text-sm font-bold transition-all duration-200 ${active ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
         {icon}
@@ -104,11 +223,9 @@ const NavLink = ({ to, active, icon, text }) => (
 const MobileNavLink = ({ to, active, icon, label }) => (
     <Link to={to} className={`flex flex-col items-center gap-1 transition-colors duration-200 ${active ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
         <div className={`p-1 rounded-xl ${active ? 'bg-indigo-50' : ''}`}>{icon}</div>
-        {/* <span className="text-[10px] font-medium">{label}</span> Optional Label */}
     </Link>
 );
 
-// Icons...
 const HomeIcon = () => (<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>);
 const CompassIcon = () => (<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>);
 const TrophyIcon = () => (<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);

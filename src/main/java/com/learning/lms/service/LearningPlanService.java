@@ -26,8 +26,6 @@ public class LearningPlanService {
     private final UserRepository userRepository;
     private final PlanStepRepository stepRepository;
 
-    // ... existing create/update methods ...
-
     public List<LearningPlanSummaryDto> getUserPlans(Long userId) {
         List<LearningPlan> plans = planRepository.findByUserIdOrderByCreatedAtDesc(userId);
         return plans.stream().map(this::mapToSummaryDto).collect(Collectors.toList());
@@ -38,26 +36,46 @@ public class LearningPlanService {
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
 
-    // --- FIX: Ensure 'All' is handled correctly ---
+    // --- NUCLEAR FIX: Java-Side Filtering ---
+    // bypasses 'lower(bytea)' database crashes completely
     public List<LearningPlanSummaryDto> getPublicPlans(String query, String difficulty, String category) {
-        List<LearningPlan> plans;
+        // 1. Fetch ALL public plans (Fast, no complex SQL to crash)
+        List<LearningPlan> allPlans = planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
 
-        // Normalize nulls
-        if (query != null && query.isBlank()) query = null;
-        if (difficulty == null || difficulty.isBlank()) difficulty = "All";
-        if (category == null || category.isBlank()) category = "All";
-
-        // If everything is empty/All, use the fast path
-        if (query == null && "All".equals(difficulty) && "All".equals(category)) {
-            plans = planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
-        } else {
-            // Otherwise use the robust search
-            plans = planRepository.searchPlans(query, difficulty, category);
-        }
-        return plans.stream().map(this::mapToSummaryDto).collect(Collectors.toList());
+        // 2. Filter in Java (Safe & Reliable)
+        return allPlans.stream()
+                .filter(p -> matchesFilters(p, query, difficulty, category))
+                .map(this::mapToSummaryDto)
+                .collect(Collectors.toList());
     }
 
-    // ... create, update, delete, clone, toggleStep ...
+    // Helper logic to filter safely in memory
+    private boolean matchesFilters(LearningPlan p, String query, String difficulty, String category) {
+        // Filter by Search Query
+        if (query != null && !query.isBlank()) {
+            String q = query.toLowerCase().trim();
+            boolean matchesTitle = p.getTitle() != null && p.getTitle().toLowerCase().contains(q);
+            boolean matchesDesc = p.getDescription() != null && p.getDescription().toLowerCase().contains(q);
+            if (!matchesTitle && !matchesDesc) return false;
+        }
+
+        // Filter by Difficulty
+        if (difficulty != null && !difficulty.equalsIgnoreCase("All")) {
+            if (p.getDifficulty() == null || !p.getDifficulty().trim().equalsIgnoreCase(difficulty.trim())) {
+                return false;
+            }
+        }
+
+        // Filter by Category
+        if (category != null && !category.equalsIgnoreCase("All")) {
+            if (p.getCategory() == null || !p.getCategory().trim().equalsIgnoreCase(category.trim())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     @Transactional
     public LearningPlan createPlan(Long userId, LearningPlanRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));

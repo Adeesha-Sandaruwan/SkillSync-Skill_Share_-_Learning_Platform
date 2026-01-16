@@ -24,7 +24,7 @@ const Search = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Parallel fetching for speed
+                // Fetch Data
                 const [userRes, planRes, postRes] = await Promise.all([
                     api.get(`/users/search?q=${query}`),
                     getPublicPlans(query, 'All', 'All'),
@@ -34,7 +34,7 @@ const Search = () => {
                 setPeople(userRes.data || []);
                 setPlans(planRes.data || []);
 
-                // Client-side filtering for posts (since they might just be a feed endpoint)
+                // Client-side filtering for posts
                 const allPosts = postRes.data || [];
                 const filteredPosts = allPosts.filter(p =>
                     p.description?.toLowerCase().includes(query.toLowerCase()) ||
@@ -65,7 +65,6 @@ const Search = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* HIDDEN SCROLLBAR CSS */}
             <style>{`
                 .hide-scrollbar::-webkit-scrollbar {
                     display: none;
@@ -88,7 +87,7 @@ const Search = () => {
                     </h1>
                 </div>
 
-                {/* --- STICKY TABS --- */}
+                {/* --- TABS --- */}
                 <div className="sticky top-16 z-30 -mx-4 md:mx-0 mb-6">
                     <div className="bg-slate-50/90 backdrop-blur-xl border-b border-slate-200/50 md:bg-transparent md:backdrop-blur-none md:border-none">
                         <div className="flex gap-3 overflow-x-auto px-4 py-3 md:px-0 hide-scrollbar">
@@ -124,7 +123,7 @@ const Search = () => {
                 ) : (
                     <div className="space-y-10 animate-fade-in">
 
-                        {/* --- PEOPLE GRID --- */}
+                        {/* --- PEOPLE --- */}
                         {(activeTab === 'all' || activeTab === 'people') && people.length > 0 && (
                             <section>
                                 <SectionHeader icon="👥" title="People" count={people.length} />
@@ -155,7 +154,7 @@ const Search = () => {
                             </section>
                         )}
 
-                        {/* --- ROADMAPS GRID --- */}
+                        {/* --- ROADMAPS --- */}
                         {(activeTab === 'all' || activeTab === 'roadmaps') && plans.length > 0 && (
                             <section>
                                 <SectionHeader icon="🗺️" title="Roadmaps" count={plans.length} />
@@ -169,7 +168,7 @@ const Search = () => {
                             </section>
                         )}
 
-                        {/* --- POSTS FEED --- */}
+                        {/* --- POSTS --- */}
                         {(activeTab === 'all' || activeTab === 'posts') && posts.length > 0 && (
                             <section>
                                 <SectionHeader icon="📝" title="Discussions" count={posts.length} />

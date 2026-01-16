@@ -36,7 +36,7 @@ public class LearningPlan {
 
     private Long clonedFromId;
 
-    // --- CRITICAL FIX: Changed List to Set to prevent MultipleBagFetchException ---
+    // --- FIXED: Changed List to Set to prevent DB Crash ---
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "plan_tags", joinColumns = @JoinColumn(name = "plan_id"))
     @Column(name = "tag")
@@ -51,7 +51,7 @@ public class LearningPlan {
     private LocalDate startDate;
     private LocalDate targetDate;
 
-    // Steps remain a List because order matters
+    // Steps remain a List (Order matters)
     @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     @ToString.Exclude

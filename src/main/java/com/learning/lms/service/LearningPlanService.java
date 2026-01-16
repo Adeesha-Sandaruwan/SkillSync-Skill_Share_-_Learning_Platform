@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,13 +38,39 @@ public class LearningPlanService {
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
 
-    // --- SEARCH LOGIC (Using Repository Filter) ---
+    // --- FIX: Java-Side Filtering (Robust & Crash-Proof) ---
+    @Transactional(readOnly = true)
     public List<LearningPlanSummaryDto> getPublicPlans(String query, String difficulty, String category) {
-        // We now rely on the Repository's new optimized query
-        List<LearningPlan> plans = planRepository.searchPlans(query, difficulty, category);
-        return plans.stream()
+        // 1. Fetch all public plans
+        List<LearningPlan> allPlans = planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
+
+        // 2. Filter them in Java memory (Matches logic of Dropdown)
+        return allPlans.stream()
+                .filter(p -> matchesSearch(p, query, difficulty, category))
                 .map(this::mapToSummaryDto)
                 .collect(Collectors.toList());
+    }
+
+    private boolean matchesSearch(LearningPlan p, String query, String difficulty, String category) {
+        // Filter by Difficulty
+        if (!"All".equalsIgnoreCase(difficulty)) {
+            if (p.getDifficulty() == null || !p.getDifficulty().equalsIgnoreCase(difficulty)) return false;
+        }
+        // Filter by Category
+        if (!"All".equalsIgnoreCase(category)) {
+            if (p.getCategory() == null || !p.getCategory().equalsIgnoreCase(category)) return false;
+        }
+        // Filter by Query (Title, Description, or Tags)
+        if (query != null && !query.trim().isEmpty()) {
+            String q = query.toLowerCase();
+            boolean inTitle = p.getTitle().toLowerCase().contains(q);
+            boolean inDesc = p.getDescription() != null && p.getDescription().toLowerCase().contains(q);
+            // Safe Tag Check
+            boolean inTags = p.getTags() != null && p.getTags().stream().anyMatch(t -> t.toLowerCase().contains(q));
+
+            return inTitle || inDesc || inTags;
+        }
+        return true;
     }
 
     @Transactional
@@ -70,7 +97,7 @@ public class LearningPlanService {
         plan.setPublic(true);
         plan.setUser(user);
 
-        // FIX 1: Convert List from Request -> Set for Entity
+        // FIX: Convert DTO List to Entity Set
         if (request.getTags() != null) {
             plan.setTags(new HashSet<>(request.getTags()));
         }
@@ -123,8 +150,7 @@ public class LearningPlanService {
         clone.setClonedFromId(original.getId());
         clone.setUser(newOwner);
 
-        // FIX 2: Convert Set (Entity) -> Set (Entity)
-        // using HashSet ensures a new collection instance is created
+        // FIX: Handle Set conversion for cloning
         if (original.getTags() != null) {
             clone.setTags(new HashSet<>(original.getTags()));
         }
@@ -141,7 +167,6 @@ public class LearningPlanService {
         return planRepository.save(clone);
     }
 
-    // --- MAPPER HELPERS ---
     private LearningPlanSummaryDto mapToSummaryDto(LearningPlan plan) {
         return LearningPlanSummaryDto.builder()
                 .id(plan.getId())
@@ -151,7 +176,7 @@ public class LearningPlanService {
                 .difficulty(plan.getDifficulty())
                 .isPublic(plan.isPublic())
                 .targetDate(plan.getTargetDate())
-                // FIX 3: Convert Set (Entity) -> List (DTO)
+                // FIX: Convert Entity Set -> DTO List
                 .tags(new ArrayList<>(plan.getTags()))
                 .createdAt(plan.getCreatedAt())
                 .totalSteps(plan.getSteps() != null ? plan.getSteps().size() : 0)

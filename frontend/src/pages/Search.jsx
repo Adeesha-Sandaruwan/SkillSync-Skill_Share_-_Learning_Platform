@@ -128,8 +128,8 @@ const Search = () => {
                     </h1>
                 </div>
 
-                {/* --- STICKY TABS --- */}
-                <div className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-8 pt-2">
+                {/* --- STATIC TABS (Scrolls away) --- */}
+                <div className="relative -mx-4 sm:mx-0 mb-8 pt-2">
                     <div className="bg-[#F8FAFC]/90 backdrop-blur-md border-b border-slate-200/60 sm:bg-transparent sm:backdrop-blur-none sm:border-none px-4 sm:px-0">
                         <div className="flex gap-2 overflow-x-auto py-3 hide-scrollbar sm:flex-wrap">
                             {[

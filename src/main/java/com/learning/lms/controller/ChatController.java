@@ -17,10 +17,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api") // <--- FIX 1: This ensures all endpoints start with /api
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class ChatController {
 
@@ -28,59 +29,73 @@ public class ChatController {
     private final ChatService chatService;
     private final ChatMessageRepository messageRepository;
 
-    private final String UPLOAD_DIR = "uploads/chat/";
-
-    // WebSocket Endpoint (Not HTTP, so no /api prefix needed here)
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage) {
         ChatMessage saved = chatService.save(chatMessage);
+        broadcastToBoth(saved);
+    }
 
-        messagingTemplate.convertAndSendToUser(
-                String.valueOf(chatMessage.getRecipientId()),
-                "/queue/messages",
-                saved
-        );
+    // --- FIX: Robust ID Parsing for Edit ---
+    @MessageMapping("/chat.edit")
+    public void editMessage(@Payload Map<String, Object> payload) {
+        // Converts Integer/String/Long safely to Long
+        Long messageId = Long.valueOf(payload.get("id").toString());
+        String newContent = (String) payload.get("content");
 
+        ChatMessage updated = chatService.editMessage(messageId, newContent);
+        broadcastToBoth(updated);
+    }
+
+    // --- FIX: Robust ID Parsing for Delete ---
+    @MessageMapping("/chat.delete")
+    public void deleteMessage(@Payload Map<String, Object> payload) {
+        // Converts Integer/String/Long safely to Long
+        Long messageId = Long.valueOf(payload.get("id").toString());
+
+        ChatMessage deleted = chatService.deleteMessage(messageId);
+        broadcastToBoth(deleted);
+    }
+
+    @MessageMapping("/chat.read")
+    public void markAsRead(@Payload Map<String, Long> payload) {
+        Long senderId = payload.get("senderId");
+        Long recipientId = payload.get("recipientId");
+
+        chatService.markMessagesAsRead(senderId, recipientId);
+
+        // Notify Sender: "Your message was read"
         messagingTemplate.convertAndSendToUser(
-                String.valueOf(chatMessage.getSenderId()),
-                "/queue/messages",
-                saved
+                String.valueOf(senderId),
+                "/queue/read-receipt",
+                recipientId
         );
     }
 
-    // HTTP: /api/messages/{senderId}/{recipientId}
+    private void broadcastToBoth(ChatMessage message) {
+        // Send to Recipient
+        messagingTemplate.convertAndSendToUser(String.valueOf(message.getRecipientId()), "/queue/messages", message);
+        // Send to Sender (so their UI updates too)
+        messagingTemplate.convertAndSendToUser(String.valueOf(message.getSenderId()), "/queue/messages", message);
+    }
+
     @GetMapping("/messages/{senderId}/{recipientId}")
-    public ResponseEntity<List<ChatMessage>> findChatMessages(@PathVariable Long senderId,
-                                                              @PathVariable Long recipientId) {
+    public ResponseEntity<List<ChatMessage>> findChatMessages(@PathVariable Long senderId, @PathVariable Long recipientId) {
         return ResponseEntity.ok(chatService.findChatMessages(senderId, recipientId));
     }
 
-    // HTTP: /api/chat/upload
-    // FIX 2: Removed "/api" from here because the class already has it.
-    // Result path: /api/chat/upload
     @PostMapping("/chat/upload")
     public ResponseEntity<String> uploadChatImage(@RequestParam("file") MultipartFile file) {
         try {
-            File directory = new File(UPLOAD_DIR);
-            if (!directory.exists()) directory.mkdirs();
-
-            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path filePath = Paths.get(UPLOAD_DIR + fileName);
-            Files.write(filePath, file.getBytes());
-
-            String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/uploads/chat/")
-                    .path(fileName)
-                    .toUriString();
-
-            return ResponseEntity.ok(fileUrl);
+            // Assumes chatService.saveImage handles compression as previously implemented
+            String fileUrl = chatService.saveImage(file);
+            String fullUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path(fileUrl).toUriString();
+            return ResponseEntity.ok(fullUrl);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Upload failed");
         }
     }
 
-    // HTTP: /api/messages/unread/count
     @GetMapping("/messages/unread/count")
     public ResponseEntity<Long> getUnreadCount(@RequestParam Long userId) {
         return ResponseEntity.ok(messageRepository.countByRecipientIdAndIsReadFalse(userId));

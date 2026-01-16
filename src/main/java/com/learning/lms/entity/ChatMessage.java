@@ -1,5 +1,6 @@
 package com.learning.lms.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,13 +31,23 @@ public class ChatMessage {
     @Enumerated(EnumType.STRING)
     private MessageStatus status;
 
-    // --- NEW FIELDS ---
     @Enumerated(EnumType.STRING)
-    private MessageType type; // TEXT, IMAGE
+    private MessageType type;
 
     @Column(columnDefinition = "boolean default false")
+    @JsonProperty("isRead") // Forces JSON to use "isRead"
     private boolean isRead;
 
-    public enum MessageStatus { DELIVERED, RECEIVED }
-    public enum MessageType { TEXT, IMAGE }
+    private LocalDateTime readAt;
+
+    @Column(columnDefinition = "boolean default false")
+    @JsonProperty("isEdited") // Forces JSON to use "isEdited"
+    private boolean isEdited;
+
+    @Column(columnDefinition = "boolean default false")
+    @JsonProperty("isDeleted") // Forces JSON to use "isDeleted"
+    private boolean isDeleted;
+
+    public enum MessageStatus { DELIVERED, RECEIVED, READ }
+    public enum MessageType { TEXT, IMAGE, SYSTEM }
 }

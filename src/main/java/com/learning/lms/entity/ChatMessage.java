@@ -18,7 +18,7 @@ public class ChatMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String chatId; // Combination of senderId_recipientId (sorted)
+    private String chatId;
     private Long senderId;
     private Long recipientId;
 
@@ -28,9 +28,15 @@ public class ChatMessage {
     private LocalDateTime timestamp;
 
     @Enumerated(EnumType.STRING)
-    private MessageStatus status; // DELIVERED, RECEIVED
+    private MessageStatus status;
 
-    public enum MessageStatus {
-        DELIVERED, RECEIVED
-    }
+    // --- NEW FIELDS ---
+    @Enumerated(EnumType.STRING)
+    private MessageType type; // TEXT, IMAGE
+
+    @Column(columnDefinition = "boolean default false")
+    private boolean isRead;
+
+    public enum MessageStatus { DELIVERED, RECEIVED }
+    public enum MessageType { TEXT, IMAGE }
 }

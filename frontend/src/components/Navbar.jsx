@@ -16,6 +16,16 @@ const Navbar = () => {
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const searchRef = useRef(null);
 
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (user) {
+            api.get(`/messages/unread/count?userId=${user.id}`)
+                .then(res => setUnreadCount(res.data))
+                .catch(err => console.error(err));
+        }
+    }, [user]);
+
     const handleLogout = () => {
         logout();
         navigate('/login');
@@ -211,8 +221,13 @@ const Navbar = () => {
                     {/* --- RIGHT ACTIONS --- */}
                     <div className="flex items-center gap-1.5 md:gap-4 flex-shrink-0">
 
-                        {/* 🔥 CHAT ICON (ADDED HERE) 🔥 */}
-                        <Link to="/chat" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 active:scale-95 rounded-full transition-all relative group">
+                        <Link to="/chat" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors relative group">
+                            {/* BADGE */}
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+                            )}
                             <ChatIcon />
                         </Link>
 

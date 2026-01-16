@@ -80,17 +80,17 @@ public class UserController {
         return ResponseEntity.ok(userService.getSuggestions(((User) currentUser).getId()));
     }
 
+    // --- FIX: Changed "query" to "q" to match Frontend ---
     @GetMapping("/search")
-    public ResponseEntity<List<UserSummaryDto>> searchUsers(@RequestParam("query") String query) {
+    public ResponseEntity<List<UserSummaryDto>> searchUsers(@RequestParam("q") String query) {
         return ResponseEntity.ok(userService.searchUsers(query));
     }
-    // --- FIX FOR 404 ERROR ---
+
     @GetMapping("/{userId}/following")
     public ResponseEntity<List<UserSummaryDto>> getUserFollowing(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getFollowing(userId));
     }
 
-    // --- FIX FOR SUGGESTION SIDEBAR 404 ---
     @GetMapping("/{userId}/suggestions")
     public ResponseEntity<List<User>> getSuggestionsForUser(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getSuggestions(userId));

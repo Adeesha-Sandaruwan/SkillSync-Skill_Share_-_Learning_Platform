@@ -41,7 +41,6 @@ public class UserService {
     private final LearningPlanRepository learningPlanRepository;
     private final PlanStepRepository planStepRepository;
 
-    // --- BREAKING CIRCULAR DEPENDENCIES WITH @LAZY ---
     @Autowired
     @Lazy
     private PasswordEncoder passwordEncoder;
@@ -49,11 +48,9 @@ public class UserService {
     @Autowired
     @Lazy
     private NotificationService notificationService;
-    // --------------------------------------------------
 
     private final String UPLOAD_DIR = "uploads/";
 
-    // --- GOOGLE AUTO-REGISTRATION (JIT) ---
     @Transactional
     public User processGoogleLogin(String email, String displayName, String photoUrl) {
         return userRepository.findByEmail(email).orElseGet(() -> {
@@ -62,7 +59,7 @@ public class UserService {
             String baseName = email.split("@")[0];
             newUser.setUsername(baseName + "_" + UUID.randomUUID().toString().substring(0, 4));
             newUser.setFirstname(displayName);
-            newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // Uses Lazy PasswordEncoder
+            newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
             newUser.setAvatarUrl(photoUrl);
             newUser.setXp(0);
             newUser.setLevel(1);

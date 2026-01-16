@@ -15,8 +15,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Boolean existsByUsername(String username);
     Boolean existsByEmail(String email);
 
-    // --- SEARCH & DISCOVERY ---
-    @Query("SELECT u FROM User u WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.firstname) LIKE LOWER(CONCAT('%', :query, '%'))")
+    // --- SEARCH & DISCOVERY (Added Lastname check) ---
+    @Query("SELECT u FROM User u WHERE " +
+            "LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(u.firstname) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(u.lastname) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<User> searchUsers(@Param("query") String query);
 
     @Query("SELECT u FROM User u WHERE u.id != :currentUserId AND u.id NOT IN " +

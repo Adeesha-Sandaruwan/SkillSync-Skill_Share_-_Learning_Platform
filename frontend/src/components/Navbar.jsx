@@ -10,8 +10,9 @@ const Navbar = () => {
     const location = useLocation();
 
     // --- SEARCH STATES ---
+    // Added 'posts' to the initial state
     const [searchQuery, setSearchQuery] = useState('');
-    const [suggestions, setSuggestions] = useState({ people: [], plans: [] });
+    const [suggestions, setSuggestions] = useState({ people: [], plans: [], posts: [] });
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const searchRef = useRef(null);
@@ -25,21 +26,36 @@ const Navbar = () => {
     useEffect(() => {
         const fetchSuggestions = async () => {
             if (searchQuery.trim().length < 2) {
-                setSuggestions({ people: [], plans: [] });
+                setSuggestions({ people: [], plans: [], posts: [] });
                 return;
             }
 
             setLoadingSuggestions(true);
+            const lowerQuery = searchQuery.toLowerCase();
+
             try {
                 // Run fetches in parallel for speed
-                const [usersRes, plansRes] = await Promise.allSettled([
+                // Added posts fetch to the Promise.allSettled
+                const [usersRes, plansRes, postsRes] = await Promise.allSettled([
                     api.get(`/users/search?q=${searchQuery}`),
-                    getPublicPlans(searchQuery, 'All', 'All')
+                    getPublicPlans(searchQuery, 'All', 'All'),
+                    api.get(`/posts?page=0&size=50`) // Fetch recent posts to filter
                 ]);
+
+                // Filter posts client-side for the dropdown
+                let filteredPosts = [];
+                if (postsRes.status === 'fulfilled') {
+                    const allPosts = postsRes.value.data || [];
+                    filteredPosts = allPosts.filter(p =>
+                        p.description?.toLowerCase().includes(lowerQuery) ||
+                        p.user?.username?.toLowerCase().includes(lowerQuery)
+                    ).slice(0, 3); // Limit to top 3
+                }
 
                 setSuggestions({
                     people: usersRes.status === 'fulfilled' ? (usersRes.value.data || []).slice(0, 3) : [],
-                    plans: plansRes.status === 'fulfilled' ? (plansRes.value.data || []).slice(0, 3) : []
+                    plans: plansRes.status === 'fulfilled' ? (plansRes.value.data || []).slice(0, 3) : [],
+                    posts: filteredPosts
                 });
                 setShowSuggestions(true);
             } catch (error) {
@@ -76,7 +92,7 @@ const Navbar = () => {
     const handleSuggestionClick = (path) => {
         navigate(path);
         setShowSuggestions(false);
-        setSearchQuery(''); // Optional: clear search after click
+        setSearchQuery('');
     };
 
     const isActive = (path) => location.pathname === path;
@@ -97,13 +113,12 @@ const Navbar = () => {
                         </span>
                     </Link>
 
-                    {/* --- SMART SEARCH BAR (Visible on ALL Screens Now) --- */}
-                    {/* FIXED: Removed 'hidden sm:block' so it shows on mobile. Adjusted margins for mobile. */}
+                    {/* --- SMART SEARCH BAR --- */}
                     <div className="flex-1 max-w-md mx-2 sm:mx-4 relative" ref={searchRef}>
                         <form onSubmit={handleSearchSubmit} className="relative group">
                             <input
                                 type="text"
-                                placeholder="Search..."
+                                placeholder="Search people, plans, posts..."
                                 className={`w-full pl-10 pr-4 py-2.5 bg-slate-100 border-2 border-transparent text-sm font-medium text-slate-700 transition-all focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none ${showSuggestions ? 'rounded-t-2xl' : 'rounded-full'}`}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -111,7 +126,7 @@ const Navbar = () => {
                             />
                             <svg className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
 
-                            {/* Loading Spinner in Search Bar */}
+                            {/* Loading Spinner */}
                             {loadingSuggestions && (
                                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                     <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -120,7 +135,7 @@ const Navbar = () => {
                         </form>
 
                         {/* --- AUTOCOMPLETE DROPDOWN --- */}
-                        {showSuggestions && (suggestions.people.length > 0 || suggestions.plans.length > 0) && (
+                        {showSuggestions && (suggestions.people.length > 0 || suggestions.plans.length > 0 || suggestions.posts.length > 0) && (
                             <div className="absolute top-full left-0 right-0 bg-white border-x border-b border-slate-200 shadow-xl rounded-b-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
                                 {/* People Section */}
@@ -156,7 +171,31 @@ const Navbar = () => {
                                                 <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-lg">🗺️</div>
                                                 <div>
                                                     <p className="text-sm font-bold text-slate-800 line-clamp-1">{plan.title}</p>
-                                                    <p className="text-xs text-slate-400">{plan.category} • {plan.difficulty}</p>
+                                                    <p className="text-xs text-slate-400">{plan.category}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Posts Section (NEW) */}
+                                {suggestions.posts.length > 0 && (
+                                    <div className="py-2 border-t border-slate-100">
+                                        <h3 className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Discussions</h3>
+                                        {suggestions.posts.map(post => (
+                                            <div
+                                                key={post.id}
+                                                onClick={() => handleSuggestionClick(`/posts/${post.id}`)} // Assuming you have a single post view, or direct to feed
+                                                className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-lg">📝</div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-slate-800 line-clamp-1">
+                                                        {post.description}
+                                                    </p>
+                                                    <p className="text-xs text-slate-400">
+                                                        by {post.user?.username}
+                                                    </p>
                                                 </div>
                                             </div>
                                         ))}
@@ -193,7 +232,6 @@ const Navbar = () => {
                                 <div className="absolute -inset-0.5 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username}`} alt="Me" className="relative w-9 h-9 rounded-full bg-slate-200 border-2 border-white object-cover" />
                             </Link>
-                            {/* Mobile Profile Icon */}
                             <Link to={`/profile/${user?.id}`} className="md:hidden">
                                 <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username}`} alt="Me" className="w-8 h-8 rounded-full border border-slate-200" />
                             </Link>
@@ -213,7 +251,6 @@ const Navbar = () => {
     );
 };
 
-// ... Subcomponents (NavLink, Icons) stay exactly the same ...
 const NavLink = ({ to, active, icon, text }) => (
     <Link to={to} className={`px-4 py-2 rounded-full flex items-center gap-2 text-sm font-bold transition-all duration-200 ${active ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
         {icon}

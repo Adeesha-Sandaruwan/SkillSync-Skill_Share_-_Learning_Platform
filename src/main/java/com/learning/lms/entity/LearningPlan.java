@@ -10,7 +10,9 @@ import org.hibernate.annotations.BatchSize;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Data
@@ -23,7 +25,6 @@ public class LearningPlan {
     @Column(nullable = false)
     private String title;
 
-    // ✅ FORCE TEXT TYPE: Ensures DB knows this is text, not binary
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -35,29 +36,28 @@ public class LearningPlan {
 
     private Long clonedFromId;
 
-    // --- OPTIMIZED: Batch Fetching for Tags ---
+    // --- CRITICAL FIX: Changed List to Set to prevent MultipleBagFetchException ---
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "plan_tags", joinColumns = @JoinColumn(name = "plan_id"))
     @Column(name = "tag")
     @BatchSize(size = 20)
-    private List<String> tags = new ArrayList<>();
+    private Set<String> tags = new HashSet<>();
 
     private String topic;
 
-    @Column(columnDefinition = "TEXT") // Added TEXT here too just in case resources get long
+    @Column(columnDefinition = "TEXT")
     private String resources;
 
     private LocalDate startDate;
     private LocalDate targetDate;
 
-    // --- OPTIMIZED: Lazy + Batch Fetching for Steps ---
+    // Steps remain a List because order matters
     @OneToMany(mappedBy = "learningPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     @ToString.Exclude
     @BatchSize(size = 20)
     private List<PlanStep> steps = new ArrayList<>();
 
-    // --- OPTIMIZED: Lazy Loading for User ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties({"password", "posts", "plans", "progressUpdates", "comments", "following", "followers", "hibernateLazyInitializer", "handler"})

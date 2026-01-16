@@ -24,6 +24,7 @@ const Search = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
+                // Parallel fetching for speed
                 const [userRes, planRes, postRes] = await Promise.all([
                     api.get(`/users/search?q=${query}`),
                     getPublicPlans(query, 'All', 'All'),
@@ -33,6 +34,7 @@ const Search = () => {
                 setPeople(userRes.data || []);
                 setPlans(planRes.data || []);
 
+                // Client-side filtering for posts (since they might just be a feed endpoint)
                 const allPosts = postRes.data || [];
                 const filteredPosts = allPosts.filter(p =>
                     p.description?.toLowerCase().includes(query.toLowerCase()) ||
@@ -63,7 +65,7 @@ const Search = () => {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* 1. HIDDEN SCROLLBAR CSS (The Magic) */}
+            {/* HIDDEN SCROLLBAR CSS */}
             <style>{`
                 .hide-scrollbar::-webkit-scrollbar {
                     display: none;
@@ -86,10 +88,9 @@ const Search = () => {
                     </h1>
                 </div>
 
-                {/* --- STICKY TABS (Mobile Optimized) --- */}
+                {/* --- STICKY TABS --- */}
                 <div className="sticky top-16 z-30 -mx-4 md:mx-0 mb-6">
                     <div className="bg-slate-50/90 backdrop-blur-xl border-b border-slate-200/50 md:bg-transparent md:backdrop-blur-none md:border-none">
-                        {/* 2. Added 'hide-scrollbar' class here */}
                         <div className="flex gap-3 overflow-x-auto px-4 py-3 md:px-0 hide-scrollbar">
                             {[
                                 { id: 'all', label: 'All', icon: '🔍' },

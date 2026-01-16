@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,44 +37,13 @@ public class LearningPlanService {
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
     }
 
-    // --- NUCLEAR FIX: Java-Side Filtering ---
-    // bypasses 'lower(bytea)' database crashes completely
+    // --- SEARCH LOGIC (Using Repository Filter) ---
     public List<LearningPlanSummaryDto> getPublicPlans(String query, String difficulty, String category) {
-        // 1. Fetch ALL public plans (Fast, no complex SQL to crash)
-        List<LearningPlan> allPlans = planRepository.findByIsPublicTrueOrderByCreatedAtDesc();
-
-        // 2. Filter in Java (Safe & Reliable)
-        return allPlans.stream()
-                .filter(p -> matchesFilters(p, query, difficulty, category))
+        // We now rely on the Repository's new optimized query
+        List<LearningPlan> plans = planRepository.searchPlans(query, difficulty, category);
+        return plans.stream()
                 .map(this::mapToSummaryDto)
                 .collect(Collectors.toList());
-    }
-
-    // Helper logic to filter safely in memory
-    private boolean matchesFilters(LearningPlan p, String query, String difficulty, String category) {
-        // Filter by Search Query
-        if (query != null && !query.isBlank()) {
-            String q = query.toLowerCase().trim();
-            boolean matchesTitle = p.getTitle() != null && p.getTitle().toLowerCase().contains(q);
-            boolean matchesDesc = p.getDescription() != null && p.getDescription().toLowerCase().contains(q);
-            if (!matchesTitle && !matchesDesc) return false;
-        }
-
-        // Filter by Difficulty
-        if (difficulty != null && !difficulty.equalsIgnoreCase("All")) {
-            if (p.getDifficulty() == null || !p.getDifficulty().trim().equalsIgnoreCase(difficulty.trim())) {
-                return false;
-            }
-        }
-
-        // Filter by Category
-        if (category != null && !category.equalsIgnoreCase("All")) {
-            if (p.getCategory() == null || !p.getCategory().trim().equalsIgnoreCase(category.trim())) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     @Transactional
@@ -99,7 +69,12 @@ public class LearningPlanService {
         plan.setTargetDate(request.getTargetDate());
         plan.setPublic(true);
         plan.setUser(user);
-        if (request.getTags() != null) plan.setTags(request.getTags());
+
+        // FIX 1: Convert List from Request -> Set for Entity
+        if (request.getTags() != null) {
+            plan.setTags(new HashSet<>(request.getTags()));
+        }
+
         if (request.getSteps() != null) {
             if (plan.getSteps() == null) plan.setSteps(new ArrayList<>());
             for (PlanStepRequest stepReq : request.getSteps()) {
@@ -147,7 +122,13 @@ public class LearningPlanService {
         clone.setPublic(true);
         clone.setClonedFromId(original.getId());
         clone.setUser(newOwner);
-        if (original.getTags() != null) clone.setTags(new ArrayList<>(original.getTags()));
+
+        // FIX 2: Convert Set (Entity) -> Set (Entity)
+        // using HashSet ensures a new collection instance is created
+        if (original.getTags() != null) {
+            clone.setTags(new HashSet<>(original.getTags()));
+        }
+
         for (PlanStep oldStep : original.getSteps()) {
             PlanStep newStep = new PlanStep();
             newStep.setTitle(oldStep.getTitle());
@@ -170,7 +151,8 @@ public class LearningPlanService {
                 .difficulty(plan.getDifficulty())
                 .isPublic(plan.isPublic())
                 .targetDate(plan.getTargetDate())
-                .tags(plan.getTags())
+                // FIX 3: Convert Set (Entity) -> List (DTO)
+                .tags(new ArrayList<>(plan.getTags()))
                 .createdAt(plan.getCreatedAt())
                 .totalSteps(plan.getSteps() != null ? plan.getSteps().size() : 0)
                 .user(mapToUserDto(plan.getUser()))

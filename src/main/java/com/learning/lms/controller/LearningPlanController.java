@@ -27,7 +27,6 @@ public class LearningPlanController {
         return ResponseEntity.ok(planService.createBulkPlans(userId, requests));
     }
 
-    // UPDATED: Returns DTOs (Fast)
     @GetMapping("/users/{userId}/plans")
     public ResponseEntity<List<LearningPlanSummaryDto>> getUserPlans(@PathVariable Long userId) {
         return ResponseEntity.ok(planService.getUserPlans(userId));
@@ -55,7 +54,6 @@ public class LearningPlanController {
         return ResponseEntity.ok().build();
     }
 
-    // UPDATED: Returns DTOs (Fast)
     @GetMapping("/plans/public")
     public ResponseEntity<List<LearningPlanSummaryDto>> getPublicPlans(
             @RequestParam(required = false) String q,

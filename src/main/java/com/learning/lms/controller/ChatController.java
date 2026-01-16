@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -20,7 +19,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
-@Controller
+@RestController
+@RequestMapping("/api") // <--- FIX 1: This ensures all endpoints start with /api
 @RequiredArgsConstructor
 public class ChatController {
 
@@ -30,18 +30,17 @@ public class ChatController {
 
     private final String UPLOAD_DIR = "uploads/chat/";
 
+    // WebSocket Endpoint (Not HTTP, so no /api prefix needed here)
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage) {
         ChatMessage saved = chatService.save(chatMessage);
 
-        // Send to Recipient
         messagingTemplate.convertAndSendToUser(
                 String.valueOf(chatMessage.getRecipientId()),
                 "/queue/messages",
                 saved
         );
 
-        // Send back to Sender (The Echo)
         messagingTemplate.convertAndSendToUser(
                 String.valueOf(chatMessage.getSenderId()),
                 "/queue/messages",
@@ -49,14 +48,17 @@ public class ChatController {
         );
     }
 
+    // HTTP: /api/messages/{senderId}/{recipientId}
     @GetMapping("/messages/{senderId}/{recipientId}")
     public ResponseEntity<List<ChatMessage>> findChatMessages(@PathVariable Long senderId,
                                                               @PathVariable Long recipientId) {
         return ResponseEntity.ok(chatService.findChatMessages(senderId, recipientId));
     }
 
-    // --- FIX: IMAGE UPLOAD ENDPOINT ---
-    @PostMapping("/api/chat/upload")
+    // HTTP: /api/chat/upload
+    // FIX 2: Removed "/api" from here because the class already has it.
+    // Result path: /api/chat/upload
+    @PostMapping("/chat/upload")
     public ResponseEntity<String> uploadChatImage(@RequestParam("file") MultipartFile file) {
         try {
             File directory = new File(UPLOAD_DIR);
@@ -78,6 +80,7 @@ public class ChatController {
         }
     }
 
+    // HTTP: /api/messages/unread/count
     @GetMapping("/messages/unread/count")
     public ResponseEntity<Long> getUnreadCount(@RequestParam Long userId) {
         return ResponseEntity.ok(messageRepository.countByRecipientIdAndIsReadFalse(userId));

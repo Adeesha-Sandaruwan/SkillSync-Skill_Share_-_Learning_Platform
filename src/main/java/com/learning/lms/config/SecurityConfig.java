@@ -40,6 +40,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/public/**", "/ws/**").permitAll() // Add /ws/** here
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/public/**",
+                                "/ws/**",
+                                "/uploads/**",       // Allow serving images
+                                "/api/chat/upload"   // Allow uploading images
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

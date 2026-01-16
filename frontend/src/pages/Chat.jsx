@@ -45,9 +45,8 @@ const Chat = () => {
 
             client.subscribe(`/user/${user.id}/queue/messages`, (payload) => {
                 const receivedMessage = JSON.parse(payload.body);
-                // The server echoes the message back. We ONLY add it here.
                 setMessages(prev => {
-                    // Prevent duplicate if server sends retry
+                    // Prevent duplicates
                     if (prev.some(m => m.id === receivedMessage.id)) return prev;
                     return [...prev, receivedMessage];
                 });
@@ -61,7 +60,7 @@ const Chat = () => {
         };
     }, [user]);
 
-    // Close Emoji picker when clicking outside
+    // Close Emoji picker outside click
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (emojiContainerRef.current && !emojiContainerRef.current.contains(event.target)) {
@@ -79,11 +78,12 @@ const Chat = () => {
     const loadChat = async (contact) => {
         setActiveChat(contact);
         try {
+            // Backend maps to /api/messages/... so this works with axios baseURL
             const res = await api.get(`/messages/${user.id}/${contact.id}`);
             setMessages(res.data);
             scrollToBottom();
         } catch (error) {
-            console.error(error);
+            console.error("Load Chat Error:", error);
         }
     };
 
@@ -95,13 +95,10 @@ const Chat = () => {
             recipientId: activeChat.id,
             content: content,
             type: type,
-            timestamp: new Date() // Server will overwrite, but good for local logic if needed
+            timestamp: new Date()
         };
 
         clientRef.current.send("/app/chat", {}, JSON.stringify(chatMessage));
-
-        // FIXED: Do NOT manually add the message to state here.
-        // We wait for the WebSocket subscription to receive the echo.
 
         setNewMessage("");
         setShowEmoji(false);
@@ -116,17 +113,16 @@ const Chat = () => {
         formData.append("file", file);
 
         try {
-            const res = await api.post('/api/chat/upload', formData, {
+            // FIXED URL: Removed /api prefix because axios adds it
+            const res = await api.post('/chat/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            // Send the URL as an IMAGE message
             sendMessage(res.data, 'IMAGE');
         } catch (error) {
             console.error("Upload Error:", error);
-            alert("Failed to upload image. Check console for details.");
+            alert("Failed to upload image.");
         } finally {
             setUploading(false);
-            // Clear input so same file can be selected again
             if(fileInputRef.current) fileInputRef.current.value = "";
         }
     };
@@ -142,17 +138,9 @@ const Chat = () => {
     };
 
     // --- ICONS ---
-    const PaperclipIcon = () => (
-        <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-    );
-
-    const EmojiIcon = () => (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-    );
-
-    const SendIcon = () => (
-        <svg className="w-5 h-5 translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-    );
+    const PaperclipIcon = () => (<svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>);
+    const EmojiIcon = () => (<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
+    const SendIcon = () => (<svg className="w-5 h-5 translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>);
 
     return (
         <div className="h-screen bg-[#F0F2F5] flex flex-col">
@@ -260,7 +248,6 @@ const Chat = () => {
                             {/* Input Area */}
                             <div className="p-3 bg-white border-t border-slate-100 flex items-end gap-2 relative">
 
-                                {/* Emoji Picker Popover */}
                                 {showEmoji && (
                                     <div ref={emojiContainerRef} className="absolute bottom-20 left-4 z-50 shadow-2xl rounded-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
                                         <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={400} searchDisabled={false} skinTonesDisabled />

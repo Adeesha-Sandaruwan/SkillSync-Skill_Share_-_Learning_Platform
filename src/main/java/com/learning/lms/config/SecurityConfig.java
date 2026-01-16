@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/plans/public").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/public/**", "/ws/**").permitAll() // Add /ws/** here
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

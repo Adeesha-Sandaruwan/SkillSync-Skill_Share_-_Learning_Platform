@@ -1,5 +1,6 @@
 package com.learning.lms.controller;
 
+import com.learning.lms.dto.ChatConversationDto;
 import com.learning.lms.entity.ChatMessage;
 import com.learning.lms.repository.ChatMessageRepository;
 import com.learning.lms.service.ChatService;
@@ -99,5 +100,10 @@ public class ChatController {
     @GetMapping("/messages/unread/count")
     public ResponseEntity<Long> getUnreadCount(@RequestParam Long userId) {
         return ResponseEntity.ok(messageRepository.countByRecipientIdAndIsReadFalse(userId));
+    }
+
+    @GetMapping("/chat/conversations")
+    public ResponseEntity<List<ChatConversationDto>> getConversations(@RequestParam Long userId) {
+        return ResponseEntity.ok(chatService.getConversations(userId));
     }
 }

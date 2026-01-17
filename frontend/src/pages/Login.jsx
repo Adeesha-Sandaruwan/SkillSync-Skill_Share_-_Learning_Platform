@@ -27,8 +27,15 @@ const Login = () => {
         setError('');
         setIsLoading(true);
         try {
-            await login(formData.username, formData.password);
-            navigate('/');
+            // 1. Capture the user data returned from login
+            const userData = await login(formData.username, formData.password);
+
+            // 2. Check Role and Redirect accordingly
+            if (userData?.role === 'ADMIN' || userData?.user?.role === 'ADMIN') {
+                navigate('/admin');
+            } else {
+                navigate('/');
+            }
         } catch (err) {
             console.error("Login Error:", err);
             setError(err.response?.data?.message || 'Invalid credentials.');
@@ -64,9 +71,16 @@ const Login = () => {
 
                 if (setAuth) {
                     setAuth(userData);
-                    navigate('/');
+
+                    // 3. Check Role for Google Login as well
+                    if (userData.role === 'ADMIN') {
+                        navigate('/admin');
+                    } else {
+                        navigate('/');
+                    }
                 } else {
-                    window.location.href = '/';
+                    // Fallback refresh if context isn't available
+                    window.location.href = userData.role === 'ADMIN' ? '/admin' : '/';
                 }
             }
         } catch (err) {

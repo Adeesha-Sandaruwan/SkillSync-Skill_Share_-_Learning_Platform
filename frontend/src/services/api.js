@@ -15,8 +15,15 @@ api.interceptors.request.use((config) => {
     let token = localStorage.getItem('token');
 
     if (!token) {
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (user && user.token) token = user.token;
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                if (user && user.token) token = user.token;
+            } catch (e) {
+                console.error("Error parsing user token", e);
+            }
+        }
     }
 
     if (token) {
@@ -27,7 +34,7 @@ api.interceptors.request.use((config) => {
     return Promise.reject(error);
 });
 
-// --- 2. RESPONSE INTERCEPTOR: Auto-Logout on 401/403 (THE FIX) ---
+// --- 2. RESPONSE INTERCEPTOR: Auto-Logout on 401/403 ---
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -35,14 +42,16 @@ api.interceptors.response.use(
 
         // If Backend says "Unauthorized" (User not found/Token invalid)
         if (status === 401 || status === 403) {
-            console.warn("Session expired or invalid token detected. Logging out.");
+            // Only redirect if we are NOT already on public pages (login/register/landing)
+            const currentPath = window.location.pathname;
+            if (!currentPath.includes('/login') && !currentPath.includes('/register') && currentPath !== '/') {
+                console.warn("Session expired or invalid token detected. Logging out.");
 
-            // 1. Nuke the stale data causing the error
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
+                // 1. Nuke the stale data
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
 
-            // 2. Redirect to login if we aren't already there
-            if (!window.location.pathname.includes('/login')) {
+                // 2. Redirect to login
                 window.location.href = '/login';
             }
         }

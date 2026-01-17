@@ -3,17 +3,18 @@ import { Renderer, Program, Triangle, Mesh } from 'ogl';
 
 const RippleGrid = ({
                         enableRainbow = false,
-                        gridColor = '#ffffff',
+                        gridColor = '#000000',
                         rippleIntensity = 0.05,
                         gridSize = 10.0,
-                        gridThickness = 15.0,
+                        gridThickness = 2.0,
                         fadeDistance = 1.5,
                         vignetteStrength = 2.0,
                         glowIntensity = 0.1,
-                        opacity = 1.0,
+                        opacity = 0.8,
                         gridRotation = 0,
                         mouseInteraction = true,
-                        mouseInteractionRadius = 1
+                        mouseInteractionRadius = 1,
+                        speed = 0.2 // Added a speed prop (lower is slower)
                     }) => {
     const containerRef = useRef(null);
     const mousePositionRef = useRef({ x: 0.5, y: 0.5 });
@@ -24,22 +25,30 @@ const RippleGrid = ({
     useEffect(() => {
         if (!containerRef.current) return;
 
+        // Clear any existing canvas
+        containerRef.current.innerHTML = '';
+
         const hexToRgb = (hex) => {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result
                 ? [parseInt(result[1], 16) / 255, parseInt(result[2], 16) / 255, parseInt(result[3], 16) / 255]
-                : [1, 1, 1];
+                : [0, 0, 0];
         };
 
         const renderer = new Renderer({
             dpr: Math.min(window.devicePixelRatio, 2),
-            alpha: true
+            alpha: true,
+            depth: false,
         });
+
         const gl = renderer.gl;
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
         gl.canvas.style.width = '100%';
         gl.canvas.style.height = '100%';
+        gl.canvas.style.display = 'block';
+
         containerRef.current.appendChild(gl.canvas);
 
         const vert = `
@@ -106,19 +115,6 @@ const RippleGrid = ({
         vec3 color = vec3(0.0);
         color += exp(-gridThickness * smoothB.x * (0.8 + 0.5 * sin(pi * iTime)));
         color += exp(-gridThickness * smoothB.y);
-        color += 0.5 * exp(-(gridThickness / 4.0) * sin(smoothB.x));
-        color += 0.5 * exp(-(gridThickness / 3.0) * smoothB.y);
-
-        if (glowIntensity > 0.0) {
-          color += glowIntensity * exp(-gridThickness * 0.5 * smoothB.x);
-          color += glowIntensity * exp(-gridThickness * 0.5 * smoothB.y);
-        }
-
-        float ddd = exp(-2.0 * clamp(pow(dist, fadeDistance), 0.0, 1.0));
-        vec2 vignetteCoords = vUv - 0.5;
-        float vignetteDistance = length(vignetteCoords);
-        float vignette = 1.0 - pow(vignetteDistance * 2.0, vignetteStrength);
-        vignette = clamp(vignette, 0.0, 1.0);
         
         vec3 t;
         if (enableRainbow) {
@@ -127,9 +123,10 @@ const RippleGrid = ({
           t = gridColor;
         }
 
-        float finalFade = ddd * vignette;
-        float alpha = length(color) * finalFade * opacity;
-        gl_FragColor = vec4(color * t * finalFade * opacity, alpha);
+        float ddd = exp(-2.0 * clamp(pow(dist, fadeDistance), 0.0, 1.0));
+        float alpha = length(color) * opacity; 
+        
+        gl_FragColor = vec4(t, alpha * ddd);
       }`;
 
         const uniforms = {
@@ -181,11 +178,16 @@ const RippleGrid = ({
             containerRef.current.addEventListener('mouseenter', handleMouseEnter);
             containerRef.current.addEventListener('mouseleave', handleMouseLeave);
         }
-        resize();
+        setTimeout(resize, 0);
 
         let animationId;
         const render = (t) => {
-            uniforms.iTime.value = t * 0.001;
+            if (!containerRef.current) return;
+
+            // --- FIX: SPEED CONTROL ---
+            // Multiply by speed prop (default 0.2) then by 0.001 to slow down significantly
+            uniforms.iTime.value = t * 0.001 * speed;
+
             const lerpFactor = 0.1;
             mousePositionRef.current.x += (targetMouseRef.current.x - mousePositionRef.current.x) * lerpFactor;
             mousePositionRef.current.y += (targetMouseRef.current.y - mousePositionRef.current.y) * lerpFactor;
@@ -208,17 +210,14 @@ const RippleGrid = ({
                 containerRef.current.removeEventListener('mousemove', handleMouseMove);
                 containerRef.current.removeEventListener('mouseenter', handleMouseEnter);
                 containerRef.current.removeEventListener('mouseleave', handleMouseLeave);
-                if (containerRef.current.contains(gl.canvas)) {
-                    containerRef.current.removeChild(gl.canvas);
-                }
+                containerRef.current.innerHTML = '';
             }
-            // Clean up WebGL context
             const extension = gl.getExtension('WEBGL_lose_context');
             if (extension) extension.loseContext();
         };
-    }, [enableRainbow, gridColor, rippleIntensity, gridSize, gridThickness, fadeDistance, vignetteStrength, glowIntensity, opacity, gridRotation, mouseInteraction, mouseInteractionRadius]);
+    }, [enableRainbow, gridColor, rippleIntensity, gridSize, gridThickness, fadeDistance, vignetteStrength, glowIntensity, opacity, gridRotation, mouseInteraction, mouseInteractionRadius, speed]);
 
-    return <div ref={containerRef} className="w-full h-full relative overflow-hidden" />;
+    return <div ref={containerRef} className="w-full h-full absolute inset-0" />;
 };
 
 export default RippleGrid;

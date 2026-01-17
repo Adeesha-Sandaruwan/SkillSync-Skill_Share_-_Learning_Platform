@@ -4,8 +4,8 @@ import { useAuth } from '../context/useAuth';
 import RippleGrid from '../components/RippleGrid';
 import { motion } from 'framer-motion';
 import {
-    Rocket, Users, BookOpen, ChevronRight, Globe, Github, Linkedin,
-    Mail, Phone, Award, Clock, ShieldCheck
+    BookOpen, Users, Award, ChevronRight, Github, Linkedin,
+    Mail, Phone, Globe
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -16,7 +16,6 @@ const LandingPage = () => {
 
     useEffect(() => {
         if (user) {
-            // Redirect based on role
             if (user.role === 'ADMIN') {
                 navigate('/admin');
             } else {
@@ -64,24 +63,26 @@ const LandingPage = () => {
                 </div>
             </header>
 
-            {/* --- HERO SECTION WITH RIPPLE GRID --- */}
+            {/* --- HERO SECTION --- */}
             <section className="relative h-[850px] flex items-center justify-center pt-20 overflow-hidden bg-slate-50/50">
-                {/* Background Animation (Adjusted for Light Mode) */}
-                <div className="absolute inset-0 z-0 opacity-60">
+
+                {/* RIPPLE GRID (UPDATED: Bigger squares, thicker lines, slow speed) */}
+                <div className="absolute inset-0 z-0">
                     <RippleGrid
-                        gridColor="#6366f1" // Indigo color
-                        gridSize={12}
-                        gridThickness={2}
-                        rippleIntensity={0.6} // Reduced for elegance
-                        mouseInteractionRadius={1.5}
-                        opacity={0.15} // Low opacity for subtle background
+                        gridColor="#4f46e5"     // Visible Indigo
+                        gridSize={6}            // Low number = BIG squares
+                        gridThickness={2}       // Thicker lines
+                        rippleIntensity={0.8}
+                        mouseInteractionRadius={2.0}
+                        opacity={0.6}           // High visibility
+                        speed={0.2}             // Slow speed
                     />
                 </div>
 
-                {/* Content */}
-                <div className="relative z-20 text-center max-w-5xl px-6 mt-10">
-                    <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-indigo-100 text-indigo-600 text-xs font-bold uppercase tracking-widest mb-8 shadow-sm">
+                {/* Content (Original Size) */}
+                <div className="relative z-20 text-center max-w-5xl px-6 mt-10 pointer-events-none">
+                    <motion.div initial="hidden" animate="visible" variants={fadeInUp} className="pointer-events-auto">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-indigo-100 text-indigo-600 text-xs font-bold uppercase tracking-widest mb-8 shadow-sm backdrop-blur-md">
                             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
                             The Future of Learning
                         </div>
@@ -104,7 +105,7 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* --- STATS BANNER (Active Users Removed) --- */}
+            {/* --- STATS BANNER --- */}
             <div className="border-y border-slate-100 bg-white relative z-10">
                 <div className="max-w-7xl mx-auto px-6 py-16">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-slate-100">

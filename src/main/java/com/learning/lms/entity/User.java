@@ -51,7 +51,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Integer level = 1;
 
-    // --- ROLE FIELD ADDED HERE ---
+    // --- ROLE FIELD ---
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Role role = Role.USER;
@@ -89,6 +89,7 @@ public class User implements UserDetails {
         if (this.xp == null) this.xp = 0;
         if (this.level == null) this.level = 1;
         if (this.badges == null) this.badges = new HashSet<>();
+        // Ensure role is never null on save
         if (this.role == null) this.role = Role.USER;
     }
 
@@ -107,9 +108,13 @@ public class User implements UserDetails {
         userToUnfollow.getFollowers().remove(this);
     }
 
-    // --- UPDATED AUTHORITIES ---
+    // --- FIXED: NULL POINTER EXCEPTION HANDLER ---
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        // If role is null (legacy users), default to USER to prevent crash
+        if (this.role == null) {
+            return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        }
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 

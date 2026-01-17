@@ -11,6 +11,8 @@ import Search from './pages/Search';
 import Notifications from './pages/Notifications';
 import Chat from './pages/Chat'; // Imported Chat
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
     return (
@@ -30,6 +32,9 @@ function App() {
                 <Route path="/profile/:userId" element={<Profile />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/chat" element={<Chat />} /> {/* Chat Route Added Here */}
+            </Route>
+            <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminDashboard />} />
             </Route>
 
             {/* Fallback Route */}

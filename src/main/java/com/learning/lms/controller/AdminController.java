@@ -1,10 +1,11 @@
 package com.learning.lms.controller;
 
 import com.learning.lms.entity.Role;
+import com.learning.lms.entity.SkillPost; // Corrected Entity Import
 import com.learning.lms.entity.User;
-import com.learning.lms.repository.PostRepository;
+import com.learning.lms.repository.LearningPlanRepository; // Ensure this matches your file name
+import com.learning.lms.repository.SkillPostRepository;    // Corrected Repo Import
 import com.learning.lms.repository.UserRepository;
-import com.learning.lms.repository.LearningPlanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +20,7 @@ import java.util.Map;
 public class AdminController {
 
     private final UserRepository userRepository;
-    private final PostRepository postRepository;
+    private final SkillPostRepository skillPostRepository; // Corrected Variable
     private final LearningPlanRepository planRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -27,7 +28,7 @@ public class AdminController {
     public ResponseEntity<Map<String, Long>> getStats() {
         return ResponseEntity.ok(Map.of(
                 "users", userRepository.count(),
-                "posts", postRepository.count(),
+                "posts", skillPostRepository.count(), // Uses correct repo
                 "plans", planRepository.count()
         ));
     }
@@ -39,8 +40,11 @@ public class AdminController {
 
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
-        userRepository.deleteById(id);
-        return ResponseEntity.ok("User deleted");
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
+            return ResponseEntity.ok("User deleted");
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PostMapping("/create-admin")
@@ -54,11 +58,31 @@ public class AdminController {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.ADMIN) // Force Admin
+                .role(Role.ADMIN)
                 .xp(0)
                 .level(1)
                 .build();
         userRepository.save(user);
         return ResponseEntity.ok("Admin created successfully");
+    }
+
+    // --- POST MANAGEMENT (Updated to SkillPost) ---
+    @DeleteMapping("/posts/{id}")
+    public ResponseEntity<?> deletePost(@PathVariable Long id) {
+        if (skillPostRepository.existsById(id)) {
+            skillPostRepository.deleteById(id);
+            return ResponseEntity.ok("Post deleted");
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    // --- PLAN MANAGEMENT ---
+    @DeleteMapping("/plans/{id}")
+    public ResponseEntity<?> deletePlan(@PathVariable Long id) {
+        if (planRepository.existsById(id)) {
+            planRepository.deleteById(id);
+            return ResponseEntity.ok("Plan deleted");
+        }
+        return ResponseEntity.notFound().build();
     }
 }

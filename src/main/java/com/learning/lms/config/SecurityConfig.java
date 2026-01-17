@@ -35,12 +35,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // --- ADMIN ENDPOINTS (LOCKED) ---
+                        // Only users with Role.ADMIN (Spring adds "ROLE_" prefix logic usually, but here we use Authority)
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
 
-                        // --- PUBLIC ENDPOINTS ---
+                        // --- PUBLIC ENDPOINTS (No login needed) ---
                         .requestMatchers("/api/auth/**", "/uploads/**", "/error", "/ws/**", "/api/chat/upload").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/plans/**", "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
 
+                        // --- ALL OTHER ENDPOINTS (Feed, Creating Posts, etc.) ---
+                        // This allows BOTH 'USER' and 'ADMIN' as long as they are logged in.
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

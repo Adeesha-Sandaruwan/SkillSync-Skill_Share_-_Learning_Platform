@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import PlanCard from '../components/PlanCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/useAuth';
+import { ChevronLeft, ChevronRight } from 'lucide-react'; // Import icons
 
 const LearningPlans = () => {
     const [plans, setPlans] = useState([]);
@@ -12,19 +13,25 @@ const LearningPlans = () => {
     const [submitting, setSubmitting] = useState(false);
     const { user } = useAuth();
 
-    // Form State including STEPS
+    // --- PAGINATION STATE ---
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
+
+    // Form State
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         category: 'Development',
         difficulty: 'Beginner',
-        steps: [{ title: '', estimatedTime: '', resourceLink: '' }] // Start with 1 empty step
+        steps: [{ title: '', estimatedTime: '', resourceLink: '' }]
     });
 
     const fetchPlans = useCallback(async () => {
         try {
             const response = await api.get(`/users/${user.id}/plans`);
-            setPlans(response.data);
+            // Optional: Sort by newest ID so newly created plans appear first
+            const sortedPlans = response.data.sort((a, b) => b.id - a.id);
+            setPlans(sortedPlans);
         } catch (error) {
             console.error("Error fetching plans", error);
         } finally {
@@ -33,6 +40,16 @@ const LearningPlans = () => {
     }, [user.id]);
 
     useEffect(() => { fetchPlans(); }, [fetchPlans]);
+
+    // --- PAGINATION LOGIC ---
+    const totalPages = Math.ceil(plans.length / itemsPerPage);
+    const displayedPlans = plans.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const nextPage = () => setCurrentPage(p => Math.min(p + 1, totalPages));
+    const prevPage = () => setCurrentPage(p => Math.max(p - 1, 1));
 
     // Step Logic
     const addStep = () => {
@@ -53,7 +70,6 @@ const LearningPlans = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            // Filter out empty steps
             const payload = {
                 ...formData,
                 steps: formData.steps.filter(s => s.title.trim() !== '')
@@ -61,13 +77,13 @@ const LearningPlans = () => {
 
             await api.post(`/users/${user.id}/plans`, payload);
 
-            // Reset Form
             setShowForm(false);
             setFormData({
                 title: '', description: '', category: 'Development', difficulty: 'Beginner',
                 steps: [{ title: '', estimatedTime: '', resourceLink: '' }]
             });
             fetchPlans();
+            setCurrentPage(1); // Jump to first page to see the new plan
         } catch (error) {
             alert("Failed to create plan");
         } finally {
@@ -75,7 +91,13 @@ const LearningPlans = () => {
         }
     };
 
-    const handleDeletePlan = (id) => setPlans(plans.filter(p => p.id !== id));
+    const handleDeletePlan = (id) => {
+        setPlans(plans.filter(p => p.id !== id));
+        // If the current page becomes empty after deletion, go back one page
+        if (displayedPlans.length === 1 && currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
+    };
 
     if (loading) return <div className="min-h-screen bg-slate-50"><Navbar /><div className="flex justify-center pt-20"><LoadingSpinner variant="page" /></div></div>;
 
@@ -166,12 +188,37 @@ const LearningPlans = () => {
                     </div>
                 </div>
 
-                {/* PLAN GRID */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {plans.map(plan => (
+                {/* PLAN GRID (Now uses displayedPlans) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {displayedPlans.map(plan => (
                         <PlanCard key={plan.id} plan={plan} isOwner={true} onDelete={handleDeletePlan} />
                     ))}
                 </div>
+
+                {/* PAGINATION CONTROLS */}
+                {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-4 py-4">
+                        <button
+                            onClick={prevPage}
+                            disabled={currentPage === 1}
+                            className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <span className="text-sm font-bold text-slate-600">
+                            Page {currentPage} of {totalPages}
+                        </span>
+
+                        <button
+                            onClick={nextPage}
+                            disabled={currentPage === totalPages}
+                            className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
             </main>
         </div>
     );

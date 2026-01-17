@@ -10,7 +10,7 @@ import PlanDetails from './pages/PlanDetails';
 import Search from './pages/Search';
 import Notifications from './pages/Notifications';
 import Chat from './pages/Chat';
-import LandingPage from './pages/LandingPage'; // <-- IMPORT THIS
+import LandingPage from './pages/LandingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminDashboard from './pages/AdminDashboard';
@@ -19,13 +19,13 @@ function App() {
     return (
         <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} /> {/* Default to Landing Page */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Protected Routes (Require Login) */}
+            {/* Protected Routes (Require Login - Both User & Admin can access) */}
             <Route element={<ProtectedRoute />}>
-                <Route path="/feed" element={<HomeFeed />} /> {/* Feed moved to /feed */}
+                <Route path="/feed" element={<HomeFeed />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
@@ -36,7 +36,7 @@ function App() {
                 <Route path="/chat" element={<Chat />} />
             </Route>
 
-            {/* Admin Routes */}
+            {/* Admin Routes (Only Admin can access) */}
             <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<AdminDashboard />} />
             </Route>

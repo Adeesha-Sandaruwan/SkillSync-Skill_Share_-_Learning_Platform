@@ -1,6 +1,6 @@
 package com.learning.lms.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty; // Changed from JsonIgnore
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;
@@ -36,7 +36,10 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String email;
 
-    @JsonIgnore
+    // --- FIX: USE WRITE_ONLY INSTEAD OF @JsonIgnore ---
+    // This fixes the "rawPassword cannot be null" error by allowing
+    // the backend to accept passwords during Admin creation.
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @Column(columnDefinition = "TEXT")
@@ -51,20 +54,18 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Integer level = 1;
 
-    // --- ROLE FIELD ---
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Role role = Role.USER;
 
-    // Optimized Badges
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_badges", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "badge_name")
     @BatchSize(size = 20)
     private Set<String> badges = new HashSet<>();
 
-    // --- RELATIONSHIPS (Optimized) ---
-    @JsonIgnore
+    // Optimize Relationships
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToMany(fetch = FetchType.LAZY)
@@ -76,7 +77,7 @@ public class User implements UserDetails {
     @BatchSize(size = 20)
     private Set<User> following = new HashSet<>();
 
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToMany(mappedBy = "following", fetch = FetchType.LAZY)
@@ -89,7 +90,6 @@ public class User implements UserDetails {
         if (this.xp == null) this.xp = 0;
         if (this.level == null) this.level = 1;
         if (this.badges == null) this.badges = new HashSet<>();
-        // Ensure role is never null on save
         if (this.role == null) this.role = Role.USER;
     }
 
@@ -108,10 +108,8 @@ public class User implements UserDetails {
         userToUnfollow.getFollowers().remove(this);
     }
 
-    // --- FIXED: NULL POINTER EXCEPTION HANDLER ---
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // If role is null (legacy users), default to USER to prevent crash
         if (this.role == null) {
             return List.of(new SimpleGrantedAuthority("ROLE_USER"));
         }

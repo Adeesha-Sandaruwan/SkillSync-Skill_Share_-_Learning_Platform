@@ -9,23 +9,21 @@ const Icons = {
     Users: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
     Posts: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>,
     Logs: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>,
+    Globe: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
     Logout: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
 };
 
 const AdminDashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
-    const [view, setView] = useState('dashboard'); // dashboard, users, posts, logs, admins
+    const [view, setView] = useState('dashboard');
     const [stats, setStats] = useState({});
     const [users, setUsers] = useState([]);
     const [posts, setPosts] = useState([]);
     const [logs, setLogs] = useState([]);
 
-    // Message User Modal State
     const [messageModal, setMessageModal] = useState({ open: false, userId: null, username: '' });
     const [msgContent, setMsgContent] = useState('');
-
-    // New Admin State
     const [newAdmin, setNewAdmin] = useState({ firstname: '', lastname: '', username: '', email: '', password: '' });
 
     useEffect(() => {
@@ -91,7 +89,6 @@ const AdminDashboard = () => {
         navigate('/login');
     };
 
-    // --- SIDEBAR COMPONENT ---
     const SidebarItem = ({ id, label, icon: Icon }) => (
         <button
             onClick={() => setView(id)}
@@ -119,14 +116,24 @@ const AdminDashboard = () => {
                         <SidebarItem id="admins" label="System Admins" icon={Icons.Users} />
                     </div>
                 </div>
-                <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-all font-bold">
-                    <Icons.Logout /> Logout
-                </button>
+
+                <div className="space-y-3">
+                    {/* --- NEW BUTTON: GO TO LIVE SITE --- */}
+                    <button
+                        onClick={() => navigate('/feed')}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all font-bold"
+                    >
+                        <Icons.Globe /> View Live Site
+                    </button>
+
+                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-all font-bold">
+                        <Icons.Logout /> Logout
+                    </button>
+                </div>
             </div>
 
             {/* MAIN CONTENT */}
             <div className="flex-1 ml-64 p-8">
-
                 {/* --- DASHBOARD OVERVIEW --- */}
                 {view === 'dashboard' && (
                     <div className="animate-in fade-in duration-500">
@@ -174,12 +181,7 @@ const AdminDashboard = () => {
                                         <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'ADMIN' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>{u.role}</span></td>
                                         <td className="p-4 text-slate-500">{u.email}</td>
                                         <td className="p-4 text-right space-x-2">
-                                            <button
-                                                onClick={() => setMessageModal({ open: true, userId: u.id, username: u.username })}
-                                                className="text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded font-bold"
-                                            >
-                                                Contact
-                                            </button>
+                                            <button onClick={() => setMessageModal({ open: true, userId: u.id, username: u.username })} className="text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded font-bold">Contact</button>
                                             <button onClick={() => handleDeleteUser(u.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold">Delete</button>
                                         </td>
                                     </tr>

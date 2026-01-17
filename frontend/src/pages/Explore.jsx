@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import PlanCard from '../components/PlanCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getPublicPlans } from '../services/api';
+import { ChevronLeft, ChevronRight } from 'lucide-react'; // Import Pagination Icons
 
 const Explore = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -15,6 +16,10 @@ const Explore = () => {
     // Filters
     const [search, setSearch] = useState(queryFromUrl);
     const [difficulty, setDifficulty] = useState('All');
+
+    // --- PAGINATION STATE ---
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 9; // Show 9 items per page (3x3 grid)
 
     // Sync state if URL changes
     useEffect(() => {
@@ -28,11 +33,9 @@ const Explore = () => {
             try {
                 // Ensure "All" is converted to null/empty so backend ignores it
                 // OR backend handles "All".
-                // Based on your Backend Service code, it handles "All" correctly.
-                // So we can send 'All' directly.
-
                 const res = await getPublicPlans(search, difficulty, 'All');
                 setPlans(res.data || []);
+                setCurrentPage(1); // Reset to page 1 on new search/filter
             } catch (error) {
                 console.error("Failed to fetch explore content", error);
                 setPlans([]);
@@ -53,6 +56,16 @@ const Explore = () => {
         setSearch(val);
         setSearchParams(val ? { q: val } : {});
     };
+
+    // --- PAGINATION LOGIC ---
+    const totalPages = Math.ceil(plans.length / itemsPerPage);
+    const displayedPlans = plans.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const nextPage = () => setCurrentPage(p => Math.min(p + 1, totalPages));
+    const prevPage = () => setCurrentPage(p => Math.max(p - 1, 1));
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -101,13 +114,40 @@ const Explore = () => {
                 {loading ? (
                     <div className="flex justify-center pt-32"><LoadingSpinner /></div>
                 ) : plans.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in-up">
-                        {plans.map(plan => (
-                            <div key={plan.id} className="transform transition-all hover:-translate-y-1">
-                                <PlanCard plan={plan} isOwner={false} />
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in-up mb-12">
+                            {displayedPlans.map(plan => (
+                                <div key={plan.id} className="transform transition-all hover:-translate-y-1">
+                                    <PlanCard plan={plan} isOwner={false} />
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* --- PAGINATION CONTROLS --- */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-4 py-6 border-t border-slate-200 mt-8">
+                                <button
+                                    onClick={prevPage}
+                                    disabled={currentPage === 1}
+                                    className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+
+                                <span className="text-sm font-bold text-slate-600 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+
+                                <button
+                                    onClick={nextPage}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 ) : (
                     <div className="text-center py-32 bg-white/50 rounded-3xl border border-dashed border-slate-300 mx-auto max-w-2xl mt-10">
                         <div className="text-6xl mb-4 grayscale opacity-50">🔭</div>

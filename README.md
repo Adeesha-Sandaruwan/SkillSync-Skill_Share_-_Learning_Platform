@@ -149,4 +149,4 @@ Push to the Branch (git push origin feature/AmazingFeature)
 Open a Pull Request
 
 
-<div align="center"> <p>Built with ❤️ for the Developer Community</p> </div>
+Built with ❤️ for the Developer Community

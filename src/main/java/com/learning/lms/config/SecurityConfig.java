@@ -33,9 +33,17 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // --- ADMIN ENDPOINTS ---
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers("/api/auth/**", "/uploads/**", "/error", "/ws/**", "/api/chat/upload").permitAll()
+
+                        // --- PUBLIC ENDPOINTS (FIXED: Added /api/public/**) ---
+                        .requestMatchers("/api/auth/**", "/uploads/**", "/error", "/ws/**", "/api/chat/upload", "/api/public/**").permitAll()
+
+                        // --- SPECIFIC GET ENDPOINTS ---
                         .requestMatchers(HttpMethod.GET, "/api/plans/**", "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
+
+                        // --- AUTHENTICATED ---
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

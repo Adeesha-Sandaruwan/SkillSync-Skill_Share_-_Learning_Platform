@@ -13,13 +13,8 @@ const Login = () => {
     const { login, setAuth, normalizeUser } = useAuth();
     const navigate = useNavigate();
 
-    // Helper to decode Google Token
     const parseJwt = (token) => {
-        try {
-            return JSON.parse(atob(token.split('.')[1]));
-        } catch (e) {
-            return null;
-        }
+        try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
     };
 
     const handleSubmit = async (e) => {
@@ -27,14 +22,13 @@ const Login = () => {
         setError('');
         setIsLoading(true);
         try {
-            // 1. Capture the user data returned from login
             const userData = await login(formData.username, formData.password);
 
-            // 2. Check Role and Redirect accordingly
-            if (userData?.role === 'ADMIN' || userData?.user?.role === 'ADMIN') {
+            // --- FIX: Redirect Logic ---
+            if (userData.role === 'ADMIN') {
                 navigate('/admin');
             } else {
-                navigate('/');
+                navigate('/feed'); // <--- CHANGED FROM '/' TO '/feed'
             }
         } catch (err) {
             console.error("Login Error:", err);
@@ -50,10 +44,8 @@ const Login = () => {
         try {
             const googleToken = credentialResponse.credential;
             const decoded = parseJwt(googleToken);
-
             if (!decoded) throw new Error("Failed to decode Google token");
 
-            // Send all details needed for Auto-Registration (JIT)
             const res = await api.post('/auth/google', {
                 email: decoded.email,
                 displayName: decoded.name,
@@ -63,7 +55,6 @@ const Login = () => {
 
             if (res.data.token) {
                 const userData = normalizeUser ? normalizeUser(res.data) : res.data;
-                // Safety mapping
                 if (userData.userId && !userData.id) userData.id = userData.userId;
 
                 localStorage.setItem('token', res.data.token);
@@ -71,16 +62,14 @@ const Login = () => {
 
                 if (setAuth) {
                     setAuth(userData);
-
-                    // 3. Check Role for Google Login as well
+                    // --- FIX: Redirect Logic ---
                     if (userData.role === 'ADMIN') {
                         navigate('/admin');
                     } else {
-                        navigate('/');
+                        navigate('/feed'); // <--- CHANGED FROM '/' TO '/feed'
                     }
                 } else {
-                    // Fallback refresh if context isn't available
-                    window.location.href = userData.role === 'ADMIN' ? '/admin' : '/';
+                    window.location.href = userData.role === 'ADMIN' ? '/admin' : '/feed';
                 }
             }
         } catch (err) {

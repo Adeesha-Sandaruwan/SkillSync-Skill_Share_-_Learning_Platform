@@ -33,17 +33,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // --- ADMIN ENDPOINTS (LOCKED) ---
-                        // Only users with Role.ADMIN (Spring adds "ROLE_" prefix logic usually, but here we use Authority)
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-
-                        // --- PUBLIC ENDPOINTS (No login needed) ---
                         .requestMatchers("/api/auth/**", "/uploads/**", "/error", "/ws/**", "/api/chat/upload").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/plans/**", "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
-
-                        // --- ALL OTHER ENDPOINTS (Feed, Creating Posts, etc.) ---
-                        // This allows BOTH 'USER' and 'ADMIN' as long as they are logged in.
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -56,7 +48,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+
+        // --- PRODUCTION CORS CONFIG ---
+        String frontendUrl = System.getenv("FRONTEND_URL");
+        if (frontendUrl != null) {
+            // Allows Localhost AND the Vercel URL (e.g. https://skillsync.vercel.app)
+            configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000", frontendUrl));
+        } else {
+            configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        }
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

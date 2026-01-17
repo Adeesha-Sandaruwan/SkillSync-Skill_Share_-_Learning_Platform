@@ -33,20 +33,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll() // Login/Register/Google
-                        .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers("/api/plans/public").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/public/**", "/ws/**").permitAll() // Add /ws/** here
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/api/public/**",
-                                "/ws/**",
-                                "/uploads/**",       // Allow serving images
-                                "/api/chat/upload"   // Allow uploading images
-                        ).permitAll()
+
+                        // --- ADMIN ENDPOINTS (LOCKED) ---
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+
+                        // --- PUBLIC ENDPOINTS ---
+                        .requestMatchers("/api/auth/**", "/uploads/**", "/error", "/ws/**", "/api/chat/upload").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/plans/**", "/api/users/**", "/api/posts/**", "/api/portfolio/**").permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

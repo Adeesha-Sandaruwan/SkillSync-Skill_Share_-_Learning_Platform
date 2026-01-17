@@ -13,6 +13,6 @@ public class AuthenticationResponse {
     private String token;
     private Long id;
     private String username;
-    private String role;
-    private String avatarUrl; // <--- ADDED: This was missing!
+    private String role; // Ensure this is populated in your AuthService!
+    private String avatarUrl;
 }

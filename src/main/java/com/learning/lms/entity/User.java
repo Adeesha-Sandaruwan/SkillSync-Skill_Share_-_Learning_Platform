@@ -51,6 +51,11 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Integer level = 1;
 
+    // --- ROLE FIELD ADDED HERE ---
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Role role = Role.USER;
+
     // Optimized Badges
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_badges", joinColumns = @JoinColumn(name = "user_id"))
@@ -84,6 +89,7 @@ public class User implements UserDetails {
         if (this.xp == null) this.xp = 0;
         if (this.level == null) this.level = 1;
         if (this.badges == null) this.badges = new HashSet<>();
+        if (this.role == null) this.role = Role.USER;
     }
 
     @Column(columnDefinition = "boolean default false")
@@ -101,9 +107,10 @@ public class User implements UserDetails {
         userToUnfollow.getFollowers().remove(this);
     }
 
+    // --- UPDATED AUTHORITIES ---
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("USER"));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override public String getPassword() { return password; }

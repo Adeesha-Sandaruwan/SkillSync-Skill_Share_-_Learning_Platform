@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -37,7 +38,7 @@ public class SecurityConfig {
                         // --- ADMIN ENDPOINTS ---
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
 
-                        // --- PUBLIC ENDPOINTS (FIXED: Added /api/public/**) ---
+                        // --- PUBLIC ENDPOINTS ---
                         .requestMatchers("/api/auth/**", "/uploads/**", "/error", "/ws/**", "/api/chat/upload", "/api/public/**").permitAll()
 
                         // --- SPECIFIC GET ENDPOINTS ---
@@ -57,15 +58,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // --- PRODUCTION CORS CONFIG ---
-        String frontendUrl = System.getenv("FRONTEND_URL");
-        if (frontendUrl != null) {
-            // Allows Localhost AND the Vercel URL (e.g. https://skillsync.vercel.app)
-            configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000", frontendUrl));
-        } else {
-            configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        // 1. Define base allowed origins (Localhost + Production)
+        List<String> allowedOrigins = new ArrayList<>();
+        allowedOrigins.add("http://localhost:5173");
+        allowedOrigins.add("http://localhost:3000");
+        allowedOrigins.add("https://skillsyncfrontend.vercel.app"); // <--- Explicitly Added
+
+        // 2. Check for ENV variable just in case, but don't rely on it solely
+        String envFrontendUrl = System.getenv("FRONTEND_URL");
+        if (envFrontendUrl != null && !envFrontendUrl.isBlank()) {
+            allowedOrigins.add(envFrontendUrl);
         }
 
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

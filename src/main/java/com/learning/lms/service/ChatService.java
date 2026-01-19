@@ -25,7 +25,6 @@ public class ChatService {
     private final UserRepository userRepository;
     private final String UPLOAD_DIR = "uploads/chat/";
 
-    // ... (Keep existing save, edit, delete, markAsRead methods) ...
     public ChatMessage save(ChatMessage message) {
         message.setChatId(getChatId(message.getSenderId(), message.getRecipientId()));
         message.setTimestamp(LocalDateTime.now());
@@ -38,17 +37,12 @@ public class ChatService {
         return messageRepository.findByChatId(chatId);
     }
 
-    // --- NEW: Get Conversation List for Sidebar ---
     public List<ChatConversationDto> getConversations(Long currentUserId) {
-        // 1. Get all users the current user follows (or has chatted with)
-        // For simplicity, we stick to "Following" + anyone who sent a message
         User currentUser = userRepository.findById(currentUserId).orElseThrow();
         Set<User> conversationPartners = new HashSet<>(currentUser.getFollowing());
 
-        // Convert to DTOs with Last Message info
         return conversationPartners.stream().map(partner -> {
                     String chatId = getChatId(currentUserId, partner.getId());
-                    // This is a naive fetch. In production, use a custom @Query for performance
                     List<ChatMessage> history = messageRepository.findByChatId(chatId);
 
                     String lastMsg = "Start a conversation";
@@ -61,7 +55,6 @@ public class ChatService {
                         if (latest.isDeleted()) lastMsg = "🚫 Message deleted";
                         lastTime = latest.getTimestamp();
 
-                        // Count unread from this specific partner
                         unread = history.stream()
                                 .filter(m -> m.getRecipientId().equals(currentUserId) && !m.isRead())
                                 .count();
@@ -80,7 +73,6 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
-    // ... (Keep image compression, edit, delete, markRead logic same as before) ...
     private String getChatId(Long senderId, Long recipientId) {
         return (senderId < recipientId) ? senderId + "_" + recipientId : recipientId + "_" + senderId;
     }
@@ -106,7 +98,7 @@ public class ChatService {
     public ChatMessage deleteMessage(Long messageId) {
         ChatMessage msg = messageRepository.findById(messageId).orElseThrow();
         msg.setDeleted(true);
-        msg.setContent(""); // Clear content for privacy
+        msg.setContent("");
         msg.setType(ChatMessage.MessageType.SYSTEM);
         return messageRepository.save(msg);
     }
@@ -114,9 +106,14 @@ public class ChatService {
     @Transactional
     public void markMessagesAsRead(Long senderId, Long recipientId) {
         String chatId = getChatId(senderId, recipientId);
+        // Find messages sent BY the partner (senderId) TO me (recipientId) that are unread
         List<ChatMessage> unread = messageRepository.findByChatIdAndRecipientIdAndIsReadFalse(chatId, recipientId);
         if(!unread.isEmpty()){
-            unread.forEach(m -> { m.setRead(true); m.setReadAt(LocalDateTime.now()); m.setStatus(ChatMessage.MessageStatus.READ); });
+            unread.forEach(m -> {
+                m.setRead(true);
+                m.setReadAt(LocalDateTime.now());
+                m.setStatus(ChatMessage.MessageStatus.READ);
+            });
             messageRepository.saveAll(unread);
         }
     }

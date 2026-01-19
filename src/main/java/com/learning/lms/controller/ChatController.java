@@ -13,13 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -36,10 +31,8 @@ public class ChatController {
         broadcastToBoth(saved);
     }
 
-    // --- FIX: Robust ID Parsing for Edit ---
     @MessageMapping("/chat.edit")
     public void editMessage(@Payload Map<String, Object> payload) {
-        // Converts Integer/String/Long safely to Long
         Long messageId = Long.valueOf(payload.get("id").toString());
         String newContent = (String) payload.get("content");
 
@@ -47,16 +40,14 @@ public class ChatController {
         broadcastToBoth(updated);
     }
 
-    // --- FIX: Robust ID Parsing for Delete ---
     @MessageMapping("/chat.delete")
     public void deleteMessage(@Payload Map<String, Object> payload) {
-        // Converts Integer/String/Long safely to Long
         Long messageId = Long.valueOf(payload.get("id").toString());
-
         ChatMessage deleted = chatService.deleteMessage(messageId);
         broadcastToBoth(deleted);
     }
 
+    // WebSocket method for real-time updates
     @MessageMapping("/chat.read")
     public void markAsRead(@Payload Map<String, Long> payload) {
         Long senderId = payload.get("senderId");
@@ -72,10 +63,15 @@ public class ChatController {
         );
     }
 
+    // --- NEW: HTTP Endpoint to reliably mark messages as read ---
+    @PutMapping("/messages/read/{senderId}/{recipientId}")
+    public ResponseEntity<Void> markMessagesReadHttp(@PathVariable Long senderId, @PathVariable Long recipientId) {
+        chatService.markMessagesAsRead(senderId, recipientId);
+        return ResponseEntity.ok().build();
+    }
+
     private void broadcastToBoth(ChatMessage message) {
-        // Send to Recipient
         messagingTemplate.convertAndSendToUser(String.valueOf(message.getRecipientId()), "/queue/messages", message);
-        // Send to Sender (so their UI updates too)
         messagingTemplate.convertAndSendToUser(String.valueOf(message.getSenderId()), "/queue/messages", message);
     }
 
@@ -87,7 +83,6 @@ public class ChatController {
     @PostMapping("/chat/upload")
     public ResponseEntity<String> uploadChatImage(@RequestParam("file") MultipartFile file) {
         try {
-            // Assumes chatService.saveImage handles compression as previously implemented
             String fileUrl = chatService.saveImage(file);
             String fullUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path(fileUrl).toUriString();
             return ResponseEntity.ok(fullUrl);

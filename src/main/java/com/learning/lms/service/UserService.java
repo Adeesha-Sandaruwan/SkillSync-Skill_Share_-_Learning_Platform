@@ -1,5 +1,7 @@
 package com.learning.lms.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.learning.lms.dto.LoginRequest;
 import com.learning.lms.dto.RegisterRequest;
 import com.learning.lms.dto.UserStatsResponse;
@@ -11,7 +13,7 @@ import com.learning.lms.repository.LearningPlanRepository;
 import com.learning.lms.repository.PlanStepRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
-import com.learning.lms.util.ImageUtils;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -21,15 +23,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,7 +44,17 @@ public class UserService {
     @Lazy
     private NotificationService notificationService;
 
-    private final String UPLOAD_DIR = "uploads/";
+    private Cloudinary cloudinary;
+
+    // Initialize Cloudinary with Env Variables
+    @PostConstruct
+    public void init() {
+        Map<String, String> config = new HashMap<>();
+        config.put("cloud_name", System.getenv("CLOUDINARY_CLOUD_NAME"));
+        config.put("api_key", System.getenv("CLOUDINARY_API_KEY"));
+        config.put("api_secret", System.getenv("CLOUDINARY_API_SECRET"));
+        this.cloudinary = new Cloudinary(config);
+    }
 
     @Transactional
     public User processGoogleLogin(String email, String displayName, String photoUrl) {
@@ -103,20 +108,23 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    // --- UPDATED: CLOUDINARY UPLOAD ---
     @Transactional
     public String uploadAvatar(Long userId, MultipartFile file) {
         try {
             User user = getUserById(userId);
-            File directory = new File(UPLOAD_DIR);
-            if (!directory.exists()) directory.mkdirs();
-            String fileName = "avatar_" + userId + "_" + UUID.randomUUID() + ".jpg";
-            Path filePath = Paths.get(UPLOAD_DIR + fileName);
-            byte[] compressedImage = ImageUtils.compressImage(file);
-            Files.write(filePath, compressedImage);
-            String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path("/uploads/").path(fileName).toUriString();
-            user.setAvatarUrl(fileUrl);
+
+            // Upload to Cloudinary
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                    "folder", "avatars",
+                    "public_id", "avatar_" + userId + "_" + UUID.randomUUID()
+            ));
+
+            String secureUrl = (String) uploadResult.get("secure_url");
+
+            user.setAvatarUrl(secureUrl);
             userRepository.save(user);
-            return fileUrl;
+            return secureUrl;
         } catch (Exception e) {
             throw new RuntimeException("Failed to upload avatar: " + e.getMessage());
         }

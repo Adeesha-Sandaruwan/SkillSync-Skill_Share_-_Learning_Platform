@@ -1,5 +1,7 @@
 package com.learning.lms.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.learning.lms.dto.UserSummaryDto;
 import com.learning.lms.entity.LearningPlan;
 import com.learning.lms.entity.SkillPost;
@@ -9,6 +11,7 @@ import com.learning.lms.enums.ReactionType;
 import com.learning.lms.repository.LearningPlanRepository;
 import com.learning.lms.repository.SkillPostRepository;
 import com.learning.lms.repository.UserRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,16 +19,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +32,17 @@ public class SkillPostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final LearningPlanRepository learningPlanRepository;
+
+    private Cloudinary cloudinary;
+
+    @PostConstruct
+    public void init() {
+        Map<String, String> config = new HashMap<>();
+        config.put("cloud_name", System.getenv("CLOUDINARY_CLOUD_NAME"));
+        config.put("api_key", System.getenv("CLOUDINARY_API_KEY"));
+        config.put("api_secret", System.getenv("CLOUDINARY_API_SECRET"));
+        this.cloudinary = new Cloudinary(config);
+    }
 
     public List<SkillPost> getAllPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -52,12 +59,9 @@ public class SkillPostService {
         return postRepository.findByUserId(userId, pageable).getContent();
     }
 
-    // --- NEW: Search Posts Logic ---
     public List<SkillPost> searchPosts(String query) {
         if(query == null || query.isBlank()) return List.of();
         String q = query.toLowerCase();
-
-        // Fetch recent 100 posts (optimization) and filter in memory
         return postRepository.findAll().stream()
                 .filter(p -> p.getDescription() != null && p.getDescription().toLowerCase().contains(q))
                 .limit(20)
@@ -74,6 +78,7 @@ public class SkillPostService {
         return postRepository.save(post);
     }
 
+    // --- UPDATED: CLOUDINARY UPLOAD FOR POSTS ---
     @Transactional
     public SkillPost createPost(Long userId, String description, List<MultipartFile> mediaFiles, Long originalPostId, Long learningPlanId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
@@ -92,19 +97,20 @@ public class SkillPostService {
         }
 
         if (mediaFiles != null && !mediaFiles.isEmpty()) {
-            String uploadDir = "uploads";
-            Path uploadPath = Paths.get(uploadDir);
             try {
-                if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
                 for (MultipartFile file : mediaFiles) {
                     if (!file.isEmpty()) {
-                        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                        Files.copy(file.getInputStream(), uploadPath.resolve(filename));
-                        String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path("/uploads/").path(filename).toUriString();
-                        post.getMediaUrls().add(fileUrl);
+                        // Upload to Cloudinary
+                        Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                                "folder", "posts"
+                        ));
+                        String secureUrl = (String) uploadResult.get("secure_url");
+                        post.getMediaUrls().add(secureUrl);
                     }
                 }
-            } catch (IOException e) { throw new RuntimeException("Failed to upload media"); }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload media: " + e.getMessage());
+            }
         }
         return postRepository.save(post);
     }

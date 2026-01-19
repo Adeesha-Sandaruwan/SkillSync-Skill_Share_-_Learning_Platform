@@ -1,17 +1,18 @@
 package com.learning.lms.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.learning.lms.dto.ChatConversationDto;
 import com.learning.lms.entity.ChatMessage;
 import com.learning.lms.entity.User;
 import com.learning.lms.repository.ChatMessageRepository;
 import com.learning.lms.repository.UserRepository;
-import net.coobird.thumbnailator.Thumbnails;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,7 +24,17 @@ public class ChatService {
 
     private final ChatMessageRepository messageRepository;
     private final UserRepository userRepository;
-    private final String UPLOAD_DIR = "uploads/chat/";
+
+    private Cloudinary cloudinary;
+
+    @PostConstruct
+    public void init() {
+        Map<String, String> config = new HashMap<>();
+        config.put("cloud_name", System.getenv("CLOUDINARY_CLOUD_NAME"));
+        config.put("api_key", System.getenv("CLOUDINARY_API_KEY"));
+        config.put("api_secret", System.getenv("CLOUDINARY_API_SECRET"));
+        this.cloudinary = new Cloudinary(config);
+    }
 
     public ChatMessage save(ChatMessage message) {
         message.setChatId(getChatId(message.getSenderId(), message.getRecipientId()));
@@ -77,13 +88,16 @@ public class ChatService {
         return (senderId < recipientId) ? senderId + "_" + recipientId : recipientId + "_" + senderId;
     }
 
+    // --- UPDATED: CLOUDINARY UPLOAD FOR CHAT ---
     public String saveImage(MultipartFile file) throws IOException {
-        File directory = new File(UPLOAD_DIR);
-        if (!directory.exists()) directory.mkdirs();
-        String fileName = UUID.randomUUID() + ".jpg";
-        File destination = new File(UPLOAD_DIR + fileName);
-        Thumbnails.of(file.getInputStream()).size(1024, 1024).outputQuality(0.7).toFile(destination);
-        return "/uploads/chat/" + fileName;
+        try {
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                    "folder", "chat_images"
+            ));
+            return (String) uploadResult.get("secure_url");
+        } catch (Exception e) {
+            throw new IOException("Failed to upload image to Cloudinary", e);
+        }
     }
 
     @Transactional
@@ -106,7 +120,6 @@ public class ChatService {
     @Transactional
     public void markMessagesAsRead(Long senderId, Long recipientId) {
         String chatId = getChatId(senderId, recipientId);
-        // Find messages sent BY the partner (senderId) TO me (recipientId) that are unread
         List<ChatMessage> unread = messageRepository.findByChatIdAndRecipientIdAndIsReadFalse(chatId, recipientId);
         if(!unread.isEmpty()){
             unread.forEach(m -> {

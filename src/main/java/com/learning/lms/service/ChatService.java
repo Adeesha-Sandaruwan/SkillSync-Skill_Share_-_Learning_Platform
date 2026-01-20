@@ -48,9 +48,13 @@ public class ChatService {
         return messageRepository.findByChatId(chatId);
     }
 
+    // --- FIX: VISIBILITY LOGIC ---
     public List<ChatConversationDto> getConversations(Long currentUserId) {
         User currentUser = userRepository.findById(currentUserId).orElseThrow();
+
+        // Fix: Include both people I follow AND people who follow me
         Set<User> conversationPartners = new HashSet<>(currentUser.getFollowing());
+        conversationPartners.addAll(currentUser.getFollowers());
 
         return conversationPartners.stream().map(partner -> {
                     String chatId = getChatId(currentUserId, partner.getId());
@@ -88,11 +92,13 @@ public class ChatService {
         return (senderId < recipientId) ? senderId + "_" + recipientId : recipientId + "_" + senderId;
     }
 
-    // --- UPDATED: CLOUDINARY UPLOAD FOR CHAT ---
+    // --- FIX: VIDEO UPLOAD IN CHAT ---
     public String saveImage(MultipartFile file) throws IOException {
         try {
+            // Added resource_type auto to support videos in chat
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                    "folder", "chat_images"
+                    "folder", "chat_images",
+                    "resource_type", "auto"
             ));
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {

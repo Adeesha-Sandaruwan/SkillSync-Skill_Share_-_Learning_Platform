@@ -59,7 +59,8 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{userId}/isFollowing")
+    // --- FIX: Changed path to "is-following" to match React Frontend ---
+    @GetMapping("/{userId}/is-following")
     public ResponseEntity<Boolean> isFollowing(@AuthenticationPrincipal UserDetails currentUser,
                                                @PathVariable Long userId) {
         return ResponseEntity.ok(userService.isFollowing(((User) currentUser).getId(), userId));
@@ -80,7 +81,6 @@ public class UserController {
         return ResponseEntity.ok(userService.getSuggestions(((User) currentUser).getId()));
     }
 
-    // --- FIX: Changed "query" to "q" to match Frontend ---
     @GetMapping("/search")
     public ResponseEntity<List<UserSummaryDto>> searchUsers(@RequestParam("q") String query) {
         return ResponseEntity.ok(userService.searchUsers(query));

@@ -100,15 +100,17 @@ public class SkillPostService {
             try {
                 for (MultipartFile file : mediaFiles) {
                     if (!file.isEmpty()) {
-                        // Upload to Cloudinary
+                        // CRITICAL FIX: Add "resource_type", "auto" to handle videos
                         Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                                "folder", "posts"
+                                "folder", "posts",
+                                "resource_type", "auto"
                         ));
                         String secureUrl = (String) uploadResult.get("secure_url");
                         post.getMediaUrls().add(secureUrl);
                     }
                 }
             } catch (IOException e) {
+                e.printStackTrace(); // Log the error for debugging
                 throw new RuntimeException("Failed to upload media: " + e.getMessage());
             }
         }

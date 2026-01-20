@@ -11,7 +11,6 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 import java.util.Map;
@@ -63,7 +62,7 @@ public class ChatController {
         );
     }
 
-    // --- NEW: HTTP Endpoint to reliably mark messages as read ---
+    // --- HTTP Endpoint to reliably mark messages as read ---
     @PutMapping("/messages/read/{senderId}/{recipientId}")
     public ResponseEntity<Void> markMessagesReadHttp(@PathVariable Long senderId, @PathVariable Long recipientId) {
         chatService.markMessagesAsRead(senderId, recipientId);
@@ -83,9 +82,9 @@ public class ChatController {
     @PostMapping("/chat/upload")
     public ResponseEntity<String> uploadChatImage(@RequestParam("file") MultipartFile file) {
         try {
+            // FIX: Return the Cloudinary URL directly. Do not wrap with ServletUriComponentsBuilder.
             String fileUrl = chatService.saveImage(file);
-            String fullUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path(fileUrl).toUriString();
-            return ResponseEntity.ok(fullUrl);
+            return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Upload failed");
